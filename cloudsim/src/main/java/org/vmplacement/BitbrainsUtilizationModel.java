@@ -84,4 +84,21 @@ public class BitbrainsUtilizationModel extends UtilizationModelAbstract implemen
         double fraction = cpuUtilizationFraction.get(index);
         return Math.max(0.01, Math.min(1.0, fraction));
     }
+
+    /**
+     * Computes the mean requested utilization across the trace, within a
+     * given time window - used to detect if delivered CPU fell short of demand.
+     */
+    public double getMeanRequestedUtilization(double windowSeconds) {
+        double sum = 0;
+        int count = 0;
+        for (int i = 0; i < timeOffsetsSeconds.size(); i++) {
+            if (timeOffsetsSeconds.get(i) <= windowSeconds) {
+                sum += cpuUtilizationFraction.get(i);
+                count++;
+            }
+        }
+        return count == 0 ? 0 : sum / count;
+    }
 }
+

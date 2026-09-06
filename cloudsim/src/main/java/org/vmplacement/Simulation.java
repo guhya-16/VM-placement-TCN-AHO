@@ -21,7 +21,9 @@ import org.cloudsimplus.vms.Vm;
 import org.cloudsimplus.vms.VmSimple;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Scaled simulation for the VM Placement project with PABFD policy
@@ -60,8 +62,9 @@ public class Simulation {
         final Datacenter datacenter = createDatacenter(simulation);
         final DatacenterBroker broker = new DatacenterBrokerSimple(simulation);
 
+        final Map<Long, Double> vmRequestedUtilizationMap = new HashMap<>();
         final List<Vm> vmList = createVms(VM_COUNT);
-        final List<Cloudlet> cloudletList = createCloudlets(VM_COUNT);
+        final List<Cloudlet> cloudletList = createCloudlets(VM_COUNT, vmRequestedUtilizationMap);
 
         // Sort VMs by descending expected utilization (Decreasing part of PABFD)
         vmList.sort((v1, v2) -> Double.compare(
@@ -85,6 +88,28 @@ public class Simulation {
                 vm.getCpuUtilizationStats().getMin());
         }
 
+        System.out.println("\n========== SLA VIOLATION CHECK ==========");
+        int slaViolations = 0;
+        final double SLA_TOLERANCE = 0.05;
+
+        for (Vm vm : vmList) {
+            double delivered = vm.getCpuUtilizationStats().getMean();
+            double requested = vmRequestedUtilizationMap.get(vm.getId());
+            double gap = requested - delivered;
+
+            // NEW: print every VM's numbers, not just violations, so "0 violations" is verifiable
+            System.out.printf("VM %2d | Requested: %.4f | Delivered: %.4f | Gap: %.4f%n",
+                vm.getId(), requested, delivered, gap);
+
+            if (gap > SLA_TOLERANCE) {
+                slaViolations++;
+                System.out.printf("  -> SLA VIOLATION (gap %.4f exceeds tolerance %.2f)%n", gap, SLA_TOLERANCE);
+            }
+        }
+        double slaViolationRate = (double) slaViolations / vmList.size();
+        System.out.printf("Total SLA violations: %d / %d VMs (%.2f%%)%n",
+            slaViolations, vmList.size(), slaViolationRate * 100);
+
         final List<Cloudlet> finishedCloudlets = broker.getCloudletFinishedList();
         System.out.println("\n========== SIMULATION RESULTS ==========");
         finishedCloudlets.forEach(c ->
@@ -95,12 +120,12 @@ public class Simulation {
             )
         );
 
-        final long activeHostsCount = datacenter.getHostList().stream()
+        final int activePmCount = (int) datacenter.getHostList().stream()
             .filter(host -> !host.getVmCreatedList().isEmpty())
             .count();
 
         System.out.printf("\nActive (utilized) hosts during simulation: %d / %d%n",
-            activeHostsCount, datacenter.getHostList().size());
+            activePmCount, datacenter.getHostList().size());
 
         System.out.println("\n========== POWER & ENERGY CONSUMPTION ==========");
         double totalEnergyWh = 0;
@@ -118,6 +143,75 @@ public class Simulation {
             totalEnergyWh += hostEnergyWh;
         }
         System.out.printf("\nTotal energy consumed: %.4f Wh%n", totalEnergyWh);
+
+        double avgCpuUtil = datacenter.getHostList().stream()
+            .filter(host -> !host.getVmCreatedList().isEmpty())
+            .mapToDouble(host -> host.getCpuUtilizationStats().getMean())
+            .average()
+            .orElse(0.0);
+
+        exportManifests(datacenter, vmList);
+        exportResults("PABFD", datacenter, vmList, totalEnergyWh, slaViolations, avgCpuUtil, activePmCount);
+    }
+
+    private static void exportResults(String algorithmName, Datacenter datacenter,
+                                      List<Vm> vmList, double totalEnergyWh,
+                                      int slaViolations, double avgCpuUtil, int activePmCount) {
+        try {
+            java.io.File resultsDir = new java.io.File("../results");
+            if (!resultsDir.exists()) {
+                resultsDir.mkdirs();
+            }
+            java.io.File f = new java.io.File("../results/simulation_results.csv");
+            boolean isNew = !f.exists() || f.length() == 0;
+            try (java.io.FileWriter fw = new java.io.FileWriter(f, true)) {
+                if (isNew) {
+                    fw.write("Algorithm,Energy_Wh,SLA_Violations,Avg_CPU,Active_PM,Migrations\n");
+                }
+                fw.write(String.format(java.util.Locale.US, "%s,%.4f,%d,%.4f,%d,0%n",
+                    algorithmName, totalEnergyWh, slaViolations, avgCpuUtil, activePmCount));
+            }
+        } catch (java.io.IOException e) {
+            System.err.println("Failed to write results: " + e.getMessage());
+        }
+    }
+
+    private static void exportManifests(Datacenter datacenter, List<Vm> vmList) {
+        try {
+            java.io.File resultsDir = new java.io.File("../results");
+            if (!resultsDir.exists()) {
+                resultsDir.mkdirs();
+            }
+            try (java.io.FileWriter fw = new java.io.FileWriter("../results/host_manifest.csv")) {
+                fw.write("host_id,pes,mips_per_pe,ram_mb,storage_mb,max_power_w,static_power_w\n");
+                for (Host host : datacenter.getHostList()) {
+                    fw.write(String.format(java.util.Locale.US, "%d,%d,%.0f,%d,%d,%.1f,%.1f%n",
+                        host.getId(), host.getPesNumber(), (double) host.getPeList().get(0).getCapacity(),
+                        host.getRam().getCapacity(), host.getStorage().getCapacity(),
+                        ((PowerModelHostSimple) host.getPowerModel()).getMaxPower(),
+                        ((PowerModelHostSimple) host.getPowerModel()).getStaticPower()));
+                }
+            }
+        } catch (java.io.IOException e) {
+            System.err.println("Failed to write host manifest: " + e.getMessage());
+        }
+
+        try {
+            java.io.File resultsDir = new java.io.File("../results");
+            if (!resultsDir.exists()) {
+                resultsDir.mkdirs();
+            }
+            try (java.io.FileWriter fw = new java.io.FileWriter("../results/vm_manifest.csv")) {
+                fw.write("vm_id,pes,mips,ram_mb,storage_mb\n");
+                for (Vm vm : vmList) {
+                    fw.write(String.format(java.util.Locale.US, "%d,%d,%.0f,%d,%d%n",
+                        vm.getId(), vm.getPesNumber(), vm.getMips(),
+                        vm.getRam().getCapacity(), vm.getStorage().getCapacity()));
+                }
+            }
+        } catch (java.io.IOException e) {
+            System.err.println("Failed to write vm manifest: " + e.getMessage());
+        }
     }
 
     private static Datacenter createDatacenter(CloudSimPlus simulation) {
@@ -177,14 +271,14 @@ public class Simulation {
         return vm;
     }
 
-    private static List<Cloudlet> createCloudlets(int vmCount) {
+    private static List<Cloudlet> createCloudlets(int vmCount, Map<Long, Double> vmRequestedUtilizationMap) {
         final List<Cloudlet> cloudletList = new ArrayList<>();
         final UtilizationModel ramUtilizationModel = new UtilizationModelDynamic(0.3);
         final UtilizationModel bwUtilizationModel = new UtilizationModelFull();
 
         for (int i = 0; i < vmCount; i++) {
             final String tracePath = "data/vm" + ((i % 4) + 1) + ".csv";
-            final UtilizationModel cpuUtilizationModel = new BitbrainsUtilizationModel(tracePath);
+            final BitbrainsUtilizationModel cpuUtilizationModel = new BitbrainsUtilizationModel(tracePath);
             final long length = 50_000_000; // deliberately huge so cloudlets run throughout observation window
             final int pes = 1;
 
@@ -194,6 +288,7 @@ public class Simulation {
             cloudlet.setUtilizationModelBw(bwUtilizationModel);
 
             cloudletList.add(cloudlet);
+            vmRequestedUtilizationMap.put((long) i, cpuUtilizationModel.getMeanRequestedUtilization(3600));
         }
 
         return cloudletList;
