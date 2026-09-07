@@ -50,3 +50,7 @@ results/stage4/
 STAGE5_COLAB_GPU_EXECUTION_GUIDE.md
 Stage5_implementation.md
 phases_of_s5_colab.svg
+
+
+# Local walkthrough documentation
+walkthrough_*.md
