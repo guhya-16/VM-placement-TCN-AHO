@@ -1,0 +1,5 @@
+# Minimal dependencies for Stage 1 (Bitbrains Dataset Loading & Inspection)
+pandas
+numpy
+matplotlib
+

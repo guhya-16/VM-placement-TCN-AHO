@@ -1,0 +1,73 @@
+{
+  "status": "PASS",
+  "row_count": 6915,
+  "expected_row_count": 6915,
+  "vm_count": 7,
+  "vms_represented": [
+    "VM_001",
+    "VM_003",
+    "VM_011",
+    "VM_012",
+    "VM_013",
+    "VM_023",
+    "VM_025"
+  ],
+  "short_lived_vms_excluded_count": 7,
+  "short_lived_vms_excluded": [
+    "VM_002",
+    "VM_004",
+    "VM_006",
+    "VM_014",
+    "VM_018",
+    "VM_161",
+    "VM_1209"
+  ],
+  "decision_timestamp_count": 997,
+  "columns": [
+    "vm_id",
+    "decision_timestamp",
+    "current_cpu",
+    "predicted_cpu_t5m",
+    "predicted_cpu_t10m",
+    "predicted_cpu_t15m",
+    "predicted_cpu_t30m",
+    "predicted_cpu_t45m",
+    "predicted_cpu_t60m",
+    "predicted_mean_cpu",
+    "predicted_peak_cpu",
+    "predicted_std_cpu",
+    "volatility_score",
+    "risk_score",
+    "risk_state"
+  ],
+  "nan_count": 0,
+  "inf_count": 0,
+  "current_cpu_range": [
+    0.0,
+    94.9
+  ],
+  "risk_score_range": [
+    0.0109,
+    1.0
+  ],
+  "risk_state_distribution": {
+    "MEDIUM": 2464,
+    "HIGH": 2391,
+    "LOW": 2060
+  },
+  "calibration_split": "validation",
+  "calibration_window_count": 6557,
+  "calibration_parameters": {
+    "volatility_p95": 4.675352,
+    "spread_p95": 3.382352,
+    "risk_low_threshold": 0.029545,
+    "risk_high_threshold": 0.174569
+  },
+  "leakage_checks": {
+    "future_actuals_in_placement_input": false,
+    "test_residuals_used_for_calibration": false,
+    "causality_strictly_enforced": true
+  },
+  "model_identifier": "M3_FULL_standard",
+  "verification_timestamp": "2026-09-07T16:09:57.348201+00:00"
+}
