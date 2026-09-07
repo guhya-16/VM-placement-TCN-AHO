@@ -1,0 +1,52 @@
+# Bytecode and Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# IDE and Editor Settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Raw Bitbrains Telemetry Dataset (13+ GB)
+dataset/
+
+# Compressed Archives & Packaging
+*.zip
+*.tar.gz
+*.rar
+colab_stage5_gpu/
+
+# Logs and Scratch Dirs
+*.log
+scratch/
+.system_generated/
+
+# Redundant Stage 5 Backups and Non-Selected Checkpoints
+results/stage5/*backup*
+results/stage5/*colab_raw*
+results/stage5/training/
+results/stage5/predictions/figures/
+results/stage5/checkpoints/M1_*
+results/stage5/checkpoints/M2_*
+results/stage5/checkpoints/M3_FULL_log1p_standard_best.pt
+results/stage5/checkpoints/M3_FULL_native_best.pt
+results/stage5/checkpoints/M3_FULL_robust_best.pt
+
+# Intermediate Stage 1-4 Diagnostic Folders
+results/inspection/
+results/preprocessing_evaluation/
+results/stage4/
+
+# Temporary Colab Documentation & Diagrams
+STAGE5_COLAB_GPU_EXECUTION_GUIDE.md
+Stage5_implementation.md
+phases_of_s5_colab.svg
