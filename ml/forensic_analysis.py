@@ -202,7 +202,7 @@ def generate_plot(files_data: Dict[str, pd.DataFrame], output_path: Path):
             first_dupe_time = dupe_times.iloc[0]
             ax.axvline(first_dupe_time, color="black", linestyle="--", alpha=0.6, label="Duplicate Transition (Aug 29)")
 
-        file_type = "Type A (Clean 300s)" if dupe_mask.sum() == 0 else f"Type B ({dupe_mask.sum():,} Duplicates)"
+        file_type = "Type A (Clean 300s)" if dupe_mask.sum() == 0 else f"Type B ({dupe_mask.sum():,} Rows in Duplicate Timestamp Groups)"
         ax.set_title(f"{fname} — {file_type} (Total Rows: {len(df):,})", fontsize=11, fontweight="bold")
         ax.grid(True, linestyle=":", alpha=0.5)
         ax.legend(loc="upper right", fontsize=9)
