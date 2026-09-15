@@ -1,0 +1,13 @@
+experiment_id,feature_mode,num_features,scaling_strategy,target_scaling,seed,best_epoch,epochs_trained,best_train_loss,best_validation_loss,validation_MAE,validation_RMSE,validation_R2,validation_sMAPE,validation_thresholded_MAPE,eligible_fraction_mape,final_learning_rate,total_training_time_sec,checkpoint_path
+M1_UNIVARIATE_native,M1_UNIVARIATE,1,native,native,42,6,6,6.7189,75.504162,1.5312,8.7004,0.1941,28.5753,14.4717,0.7121,0.0005,8000.6,results/stage5/checkpoints/M1_UNIVARIATE_native_best.pt
+M1_UNIVARIATE_standard,M1_UNIVARIATE,1,standard,native,42,11,16,5.535863,72.816329,1.4612,8.5517,0.2214,29.3089,13.7093,0.7121,0.0005,190.15,results/stage5/checkpoints/M1_UNIVARIATE_standard_best.pt
+M1_UNIVARIATE_robust,M1_UNIVARIATE,1,robust,native,42,12,14,5.05701,72.133335,1.4833,8.5105,0.2289,36.6358,15.6653,0.7121,0.001,164.14,results/stage5/checkpoints/M1_UNIVARIATE_robust_best.pt
+M1_UNIVARIATE_log1p_standard,M1_UNIVARIATE,1,log1p_standard,native,42,19,24,4.184386,72.600252,1.4415,8.5412,0.2233,34.6935,12.7482,0.7121,0.00025,288.78,results/stage5/checkpoints/M1_UNIVARIATE_log1p_standard_best.pt
+M2_RESOURCE_native,M2_RESOURCE,6,native,native,42,50,50,28.92892,109.265534,2.472,9.8132,-0.0252,65.8008,44.6029,0.7121,1.5625e-05,605.99,results/stage5/checkpoints/M2_RESOURCE_native_best.pt
+M2_RESOURCE_standard,M2_RESOURCE,6,standard,native,42,7,12,5.665755,70.100062,1.5217,8.3936,0.2499,42.1848,13.9416,0.7121,0.00025,149.6,results/stage5/checkpoints/M2_RESOURCE_standard_best.pt
+M2_RESOURCE_robust,M2_RESOURCE,6,robust,native,42,1,6,28.746032,81.264189,1.8372,8.9318,0.1507,50.3347,22.51,0.7121,0.0005,76.71,results/stage5/checkpoints/M2_RESOURCE_robust_best.pt
+M2_RESOURCE_log1p_standard,M2_RESOURCE,6,log1p_standard,native,42,5,10,7.308499,73.819563,1.6329,8.6126,0.2103,40.3438,16.0092,0.7121,0.0005,125.88,results/stage5/checkpoints/M2_RESOURCE_log1p_standard_best.pt
+M3_FULL_native,M3_FULL,10,native,native,42,22,27,1264.112597,735.18796,4.4173,11.5606,-0.4229,152.4084,124.619,0.7121,0.000125,333.35,results/stage5/checkpoints/M3_FULL_native_best.pt
+M3_FULL_standard,M3_FULL,10,standard,native,42,9,14,5.310927,69.368351,1.5304,8.3435,0.2589,36.3078,14.8459,0.7121,0.00025,173.22,results/stage5/checkpoints/M3_FULL_standard_best.pt
+M3_FULL_robust,M3_FULL,10,robust,native,42,1,6,37.871032,94.730013,1.8316,9.3509,0.0691,48.2487,20.1512,0.7121,0.0005,73.75,results/stage5/checkpoints/M3_FULL_robust_best.pt
+M3_FULL_log1p_standard,M3_FULL,10,log1p_standard,native,42,12,17,4.919347,72.651733,1.4989,8.5422,0.2231,34.3192,14.2753,0.7121,0.00025,209.75,results/stage5/checkpoints/M3_FULL_log1p_standard_best.pt

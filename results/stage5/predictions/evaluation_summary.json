@@ -1,0 +1,81 @@
+{
+  "experiment_id": "M3_FULL_standard",
+  "checkpoint_path": "results/stage5/checkpoints/M3_FULL_standard_best.pt",
+  "model_architecture": {
+    "model_class": "TCNForecaster",
+    "parameters": 48300,
+    "input_channels": 10,
+    "forecast_horizon": 12,
+    "hidden_channels": 32,
+    "kernel_size": 3,
+    "dilations": [
+      1,
+      2,
+      4,
+      8,
+      16,
+      32,
+      64,
+      128
+    ],
+    "receptive_field": 511,
+    "dropout": 0.1
+  },
+  "feature_mode": "M3_FULL",
+  "feature_columns": [
+    "cpu_usage_percent",
+    "memory_usage_kb",
+    "disk_read_kbps",
+    "disk_write_kbps",
+    "network_received_kbps",
+    "network_transmitted_kbps",
+    "hour_sin",
+    "hour_cos",
+    "day_sin",
+    "day_cos"
+  ],
+  "scaler": "standard",
+  "target_strategy": "native",
+  "lookback_L": 288,
+  "horizon_H": 12,
+  "evaluation_timestamp": "2026-09-07T09:23:30.131521+00:00",
+  "test_window_count": 6915,
+  "test_total_forecast_points": 82980,
+  "number_of_vms": 7,
+  "nan_inf_counts": {
+    "nan_predictions": 0,
+    "inf_predictions": 0,
+    "nan_targets": 0,
+    "inf_targets": 0
+  },
+  "distribution_stats": {
+    "predicted_min": -21.7768,
+    "predicted_max": 89.4167,
+    "predicted_mean": 2.8489,
+    "predicted_std": 4.0413,
+    "actual_min": 0.0,
+    "actual_max": 94.9,
+    "actual_mean": 3.9072,
+    "actual_std": 10.8073
+  },
+  "test_metrics_overall": {
+    "MAE": 1.7179,
+    "RMSE": 9.5368,
+    "R2": 0.2213,
+    "sMAPE": 44.7842,
+    "thresholded_MAPE": 15.4665,
+    "eligible_observations": 60659,
+    "eligible_fraction": 0.731
+  },
+  "validation_metrics_reference": {
+    "MAE": 1.5304,
+    "RMSE": 8.3435,
+    "R2": 0.2589,
+    "sMAPE": 36.3078,
+    "thresholded_MAPE": 14.8459,
+    "eligible_observations": 56034,
+    "eligible_fraction": 0.7121
+  },
+  "validation_loss_reference": 69.36835070169369,
+  "best_epoch_reference": 9
+}
