@@ -8,6 +8,12 @@ if (-not (Test-Path $cloudsimDir)) {
     $cloudsimDir = "$PSScriptRoot\cloudsimplus-examples"
 }
 if (-not (Test-Path $cloudsimDir)) {
+<<<<<<< HEAD
+=======
+    $cloudsimDir = "$PSScriptRoot\vm-placement-tcn-aho\cloudsim"
+}
+if (-not (Test-Path $cloudsimDir)) {
+>>>>>>> 7dacf1c30c826deeeb0e3e1d53fd44ba0fdb8fa1
     $cloudsimDir = "$PSScriptRoot"
 }
 
