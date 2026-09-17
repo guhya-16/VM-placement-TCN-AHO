@@ -14,6 +14,9 @@ public class Main {
     private static final String OUTPUT_FILE =
             "experiment_results.csv";
 
+    private static final String VM_MANIFEST_FILE =
+            "vm_manifest.csv";
+
     private static final int POPULATION_SIZE = 20;
 
     private static final int MAX_ITERATIONS = 50;
@@ -128,13 +131,27 @@ public class Main {
         // =========================================================
 
         File outputFile = new File(OUTPUT_FILE);
+        File manifestFile = new File(VM_MANIFEST_FILE);
 
         try (
                 PrintWriter writer =
                         new PrintWriter(
                                 new FileWriter(outputFile)
+                        );
+                PrintWriter manifestWriter =
+                        new PrintWriter(
+                                new FileWriter(manifestFile)
                         )
         ) {
+
+            manifestWriter.println(
+                    "epoch,"
+                            + "vm_id,"
+                            + "pes,"
+                            + "mips,"
+                            + "ram_mb,"
+                            + "storage_mb"
+            );
 
             writer.println(
                     "epoch,"
@@ -365,6 +382,22 @@ double predictionRisk =
                                 )
                 );
 
+                for (VM vm : epochVMs) {
+                    manifestWriter.println(
+                            (i + 1)
+                                    + ","
+                                    + vm.getId()
+                                    + ","
+                                    + vm.getPes()
+                                    + ","
+                                    + String.format(java.util.Locale.US, "%.0f", vm.getMips())
+                                    + ","
+                                    + String.format(java.util.Locale.US, "%.0f", vm.getRamMb())
+                                    + ","
+                                    + String.format(java.util.Locale.US, "%.0f", vm.getStorageMb())
+                    );
+                }
+
                 // =================================================
                 // PROGRESS
                 // =================================================
@@ -386,6 +419,7 @@ double predictionRisk =
             }
 
             writer.flush();
+            manifestWriter.flush();
 
         } catch (Exception e) {
 
