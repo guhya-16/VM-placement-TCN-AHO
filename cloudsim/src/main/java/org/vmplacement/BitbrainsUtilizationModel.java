@@ -26,45 +26,95 @@ public class BitbrainsUtilizationModel extends UtilizationModelAbstract implemen
 
     private final List<Double> timeOffsetsSeconds = new ArrayList<>();
     private final List<Double> cpuUtilizationFraction = new ArrayList<>();
+    private final long startTimestampSeconds;
 
     /**
+     * Constructs a trace utilization model starting from the trace's first recorded timestamp.
+     *
      * @param csvFilePath path to a single VM's Bitbrains CSV file
      */
     public BitbrainsUtilizationModel(String csvFilePath) {
-        loadTrace(csvFilePath);
+        this(csvFilePath, 0L);
     }
 
-    private void loadTrace(String csvFilePath) {
+    /**
+     * Constructs a trace utilization model aligned with a specific decision epoch timestamp.
+     *
+     * @param csvFilePath path to a single VM's Bitbrains CSV file
+     * @param startTimestampSeconds Unix epoch timestamp (in seconds) corresponding to the decision epoch
+     */
+    public BitbrainsUtilizationModel(String csvFilePath, long startTimestampSeconds) {
+        this.startTimestampSeconds = startTimestampSeconds;
+        loadTrace(csvFilePath, startTimestampSeconds);
+    }
+
+    private void loadTrace(String csvFilePath, long targetStartTimestamp) {
         try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
             String line = reader.readLine(); // header row, skip it
             Long firstTimestamp = null;
+            List<Long> allTimestamps = new ArrayList<>();
+            List<Double> allFractions = new ArrayList<>();
 
             while ((line = reader.readLine()) != null) {
                 if (line.isBlank()) continue;
 
-                // Split on ';' and trim to also strip any tab/whitespace left over
-                String[] parts = line.split(";");
+                // Support both ';' and ',' delimiters
+                String[] parts = line.contains(";") ? line.split(";") : line.split(",");
                 if (parts.length < 5) continue;
 
                 long timestampSeconds = Long.parseLong(parts[0].replace("\"", "").trim());
                 double cpuUsagePercent = Double.parseDouble(parts[4].replace("\"", "").trim());
 
-                if (firstTimestamp == null) {
-                    firstTimestamp = timestampSeconds;
-                }
-
-                double offsetSeconds = timestampSeconds - firstTimestamp;
-                double fraction = cpuUsagePercent / 100.0;
-
-                timeOffsetsSeconds.add(offsetSeconds);
-                cpuUtilizationFraction.add(fraction);
+                allTimestamps.add(timestampSeconds);
+                allFractions.add(cpuUsagePercent / 100.0);
             }
+
+            if (allTimestamps.isEmpty()) {
+                throw new RuntimeException("No data rows loaded from: " + csvFilePath);
+            }
+
+            // Determine reference starting timestamp
+            long referenceTimestamp = allTimestamps.get(0);
+            if (targetStartTimestamp > 0) {
+                // Find if targetStartTimestamp is within the trace
+                boolean foundTarget = false;
+                for (long ts : allTimestamps) {
+                    if (ts >= targetStartTimestamp) {
+                        referenceTimestamp = targetStartTimestamp;
+                        foundTarget = true;
+                        break;
+                    }
+                }
+                if (!foundTarget) {
+                    System.err.printf("[WARN] Target timestamp %d not found in %s (range %d - %d). Falling back to trace start.%n",
+                        targetStartTimestamp, csvFilePath, allTimestamps.get(0), allTimestamps.get(allTimestamps.size() - 1));
+                    referenceTimestamp = allTimestamps.get(0);
+                }
+            }
+
+            long firstAcceptedTs = -1;
+            for (int i = 0; i < allTimestamps.size(); i++) {
+                long ts = allTimestamps.get(i);
+                if (ts >= referenceTimestamp) {
+                    if (firstAcceptedTs < 0) {
+                        firstAcceptedTs = ts;
+                    }
+                    timeOffsetsSeconds.add((double) (ts - firstAcceptedTs));
+                    cpuUtilizationFraction.add(allFractions.get(i));
+                }
+            }
+
+            // If slicing left an empty list, load from initial trace start
+            if (timeOffsetsSeconds.isEmpty()) {
+                long firstTs = allTimestamps.get(0);
+                for (int i = 0; i < allTimestamps.size(); i++) {
+                    timeOffsetsSeconds.add((double) (allTimestamps.get(i) - firstTs));
+                    cpuUtilizationFraction.add(allFractions.get(i));
+                }
+            }
+
         } catch (IOException e) {
             throw new RuntimeException("Failed to load Bitbrains trace: " + csvFilePath, e);
-        }
-
-        if (timeOffsetsSeconds.isEmpty()) {
-            throw new RuntimeException("No data rows loaded from: " + csvFilePath);
         }
     }
 
