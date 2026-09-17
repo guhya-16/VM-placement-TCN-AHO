@@ -46,6 +46,26 @@ public class VmAllocationPolicyFromFile extends VmAllocationPolicyAbstract {
         loadAndValidatePlacement(placementCsvPath);
     }
 
+    /**
+     * Constructs the policy directly from an in-memory placement mapping with full validation.
+     *
+     * @param placementMap VM ID -> Host ID mapping
+     * @param label Descriptive source label for diagnostics
+     */
+    public VmAllocationPolicyFromFile(Map<Long, Long> placementMap, String label) {
+        this.placementCsvPath = label != null ? label : "in-memory-placement";
+        if (placementMap == null || placementMap.isEmpty()) {
+            throw new IllegalArgumentException("Placement map cannot be null or empty");
+        }
+        for (Map.Entry<Long, Long> entry : placementMap.entrySet()) {
+            if (entry.getKey() < 0 || entry.getValue() < 0) {
+                throw new IllegalArgumentException(
+                    String.format("Invalid negative ID in placement: VM %d -> Host %d", entry.getKey(), entry.getValue()));
+            }
+            this.vmIdToHostId.put(entry.getKey(), entry.getValue());
+        }
+    }
+
     private void loadAndValidatePlacement(String csvPath) {
         File file = new File(csvPath);
         if (!file.exists() || !file.isFile()) {
@@ -92,8 +112,13 @@ public class VmAllocationPolicyFromFile extends VmAllocationPolicyAbstract {
                 long vmId;
                 long hostId;
 
+                String vmIdStr = parts[0].trim();
                 try {
-                    vmId = Long.parseLong(parts[0].trim());
+                    if (vmIdStr.toUpperCase().startsWith("VM_")) {
+                        vmId = Long.parseLong(vmIdStr.substring(3)) - 1;
+                    } else {
+                        vmId = Long.parseLong(vmIdStr);
+                    }
                 } catch (NumberFormatException e) {
                     throw new IllegalArgumentException(
                         String.format("Invalid non-integer vm_id '%s' at line %d in %s", parts[0].trim(), lineNumber, csvPath), e);
@@ -175,9 +200,21 @@ public class VmAllocationPolicyFromFile extends VmAllocationPolicyAbstract {
             );
         }
 
-        return getHostList().stream()
-            .filter(h -> h.getId() == targetHostId)
-            .filter(h -> h.isSuitableForVm(vm)) // Enforce physical resource constraints
-            .findFirst();
+        Host targetHost = getHostList().get(targetHostId.intValue());
+        if (!targetHost.isSuitableForVm(vm)) {
+            System.err.printf("[ALLOCATION FAILURE DIAGNOSTIC] Host %d is NOT suitable for VM %d:%n" +
+                "  VM Req   : PEs=%d, MIPS=%.0f, RAM=%d MB, Storage=%d MB, BW=%d%n" +
+                "  Host Cap : Free PEs=%d (Total %d), Free MIPS=%.0f (Total %.0f), Free RAM=%d MB (Total %d MB), Free Storage=%d MB (Total %d MB), Free BW=%d%n",
+                targetHost.getId(), vm.getId(),
+                vm.getPesNumber(), vm.getMips(), vm.getRam().getCapacity(), vm.getStorage().getCapacity(), vm.getBw().getCapacity(),
+                targetHost.getFreePeList().size(), targetHost.getPesNumber(),
+                targetHost.getTotalAvailableMips(), targetHost.getTotalMipsCapacity(),
+                targetHost.getRam().getAvailableResource(), targetHost.getRam().getCapacity(),
+                targetHost.getStorage().getAvailableResource(), targetHost.getStorage().getCapacity(),
+                targetHost.getBw().getAvailableResource());
+            return Optional.empty();
+        }
+
+        return Optional.of(targetHost);
     }
 }

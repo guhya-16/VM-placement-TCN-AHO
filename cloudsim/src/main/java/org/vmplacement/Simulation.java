@@ -15,6 +15,7 @@ import org.cloudsimplus.power.models.PowerModelHostSimple;
 import org.cloudsimplus.resources.Pe;
 import org.cloudsimplus.resources.PeSimple;
 import org.cloudsimplus.schedulers.cloudlet.CloudletSchedulerTimeShared;
+import org.cloudsimplus.schedulers.vm.VmSchedulerTimeShared;
 import org.cloudsimplus.utilizationmodels.UtilizationModel;
 import org.cloudsimplus.utilizationmodels.UtilizationModelDynamic;
 import org.cloudsimplus.utilizationmodels.UtilizationModelFull;
@@ -71,7 +72,11 @@ public class Simulation {
 
     // Default execution mode (can also be overridden via command-line argument: "pabfd" or "real")
     public static ExecutionMode CURRENT_MODE = ExecutionMode.REAL_DATA_EXTERNAL_PLACEMENT;
-    public static final String PLACEMENT_FILE = "placement.csv";
+    public static String placementFile = "placement.csv";
+    public static String algorithmLabel = null;
+    public static String epochLabel = "N/A";
+    public static String timestampLabel = "N/A";
+
     private static final int SYNTHETIC_VM_COUNT = 24;
     private static final double OBSERVATION_WINDOW_SECONDS = 3600.0; // Fixed 1-hour observation window
 
@@ -103,13 +108,41 @@ public class Simulation {
     private static final long HOST_BW = 10_000;
 
     public static void main(String[] args) {
-        // Parse CLI mode override if supplied
+        // Parse CLI arguments: [placement_file_or_mode] [algorithm_label] [epoch] [timestamp]
         if (args != null && args.length > 0) {
-            String arg0 = args[0].trim().toLowerCase();
-            if (arg0.contains("pabfd") || arg0.contains("synthetic")) {
+            String arg0 = args[0].trim();
+            if (arg0.equalsIgnoreCase("pabfd") || arg0.equalsIgnoreCase("synthetic")) {
                 CURRENT_MODE = ExecutionMode.SYNTHETIC_PABFD_BASELINE;
-            } else if (arg0.contains("real") || arg0.contains("ho") || arg0.contains("file")) {
+                algorithmLabel = "PABFD_SYNTHETIC_BASELINE";
+            } else {
                 CURRENT_MODE = ExecutionMode.REAL_DATA_EXTERNAL_PLACEMENT;
+                placementFile = arg0;
+            }
+
+            if (args.length > 1) {
+                algorithmLabel = args[1].trim();
+            }
+            if (args.length > 2) {
+                epochLabel = args[2].trim();
+            }
+            if (args.length > 3) {
+                timestampLabel = args[3].trim();
+            }
+        }
+
+        if (algorithmLabel == null) {
+            if (CURRENT_MODE == ExecutionMode.SYNTHETIC_PABFD_BASELINE) {
+                algorithmLabel = "PABFD_SYNTHETIC_BASELINE";
+            } else if (placementFile.contains("standard")) {
+                algorithmLabel = "Standard_HO_Epoch8";
+                epochLabel = "8";
+                timestampLabel = "1378606200";
+            } else if (placementFile.contains("adaptive")) {
+                algorithmLabel = "Adaptive_HO_Epoch8";
+                epochLabel = "8";
+                timestampLabel = "1378606200";
+            } else {
+                algorithmLabel = "HO_INTEGRATED";
             }
         }
 
@@ -188,12 +221,12 @@ public class Simulation {
 
         System.out.println("\n========== POWER & ENERGY CONSUMPTION ==========");
         double totalEnergyWh = 0;
-        double totalSimTimeHours = simulation.clock() / 3600.0;
+        final double observationWindowHours = OBSERVATION_WINDOW_SECONDS / 3600.0; // Strictly 1.0 hour
 
         for (Host host : datacenter.getHostList()) {
             double meanUtilization = host.getCpuUtilizationStats().getMean();
             double meanPowerWatts = host.getPowerModel().getPower(meanUtilization);
-            double hostEnergyWh = meanPowerWatts * totalSimTimeHours;
+            double hostEnergyWh = meanPowerWatts * observationWindowHours;
             int vmsPlaced = host.getVmCreatedList().size();
 
             if (vmsPlaced > 0 || CURRENT_MODE == ExecutionMode.SYNTHETIC_PABFD_BASELINE) {
@@ -203,8 +236,8 @@ public class Simulation {
 
             totalEnergyWh += hostEnergyWh;
         }
-        System.out.printf("\nTotal energy consumed across all %d hosts: %.4f Wh%n",
-            datacenter.getHostList().size(), totalEnergyWh);
+        System.out.printf("\nTotal energy consumed across all %d hosts: %.4f Wh (over %.2f hour window)%n",
+            datacenter.getHostList().size(), totalEnergyWh, observationWindowHours);
 
         double avgCpuUtil = datacenter.getHostList().stream()
             .filter(host -> !host.getVmCreatedList().isEmpty())
@@ -216,7 +249,7 @@ public class Simulation {
             ? "HO_INTEGRATED" : "PABFD";
 
         exportManifests(datacenter, vmList);
-        exportResults(algorithmName, datacenter, vmList, totalEnergyWh, slaViolations, avgCpuUtil, activePmCount);
+        exportResults(algorithmLabel, epochLabel, timestampLabel, datacenter, vmList, totalEnergyWh, slaViolations, avgCpuUtil, activePmCount);
     }
 
     /**
@@ -227,12 +260,13 @@ public class Simulation {
         System.out.println("==================================================");
         System.out.println("CLOUDSIM PLUS SIMULATION INITIALIZATION");
         System.out.println("==================================================");
+        System.out.printf("Algorithm Label        : %s%n", algorithmLabel);
         System.out.printf("Mode                   : %s%n",
             CURRENT_MODE == ExecutionMode.REAL_DATA_EXTERNAL_PLACEMENT
                 ? "REAL-DATA EXTERNAL PLACEMENT" : "SYNTHETIC 24-VM PABFD BASELINE");
 
         if (CURRENT_MODE == ExecutionMode.REAL_DATA_EXTERNAL_PLACEMENT) {
-            String placementPath = resolvePlacementPath(PLACEMENT_FILE);
+            String placementPath = resolvePlacementPath(placementFile);
             System.out.printf("Placement File         : %s%n", placementPath);
             System.out.printf("Placement Rows (N)     : %d%n", vmList.size());
             System.out.printf("VMs Initialized        : %d%n", vmList.size());
@@ -268,7 +302,7 @@ public class Simulation {
      */
     public static List<Vm> createVms() {
         if (CURRENT_MODE == ExecutionMode.REAL_DATA_EXTERNAL_PLACEMENT) {
-            String placementPath = resolvePlacementPath(PLACEMENT_FILE);
+            String placementPath = resolvePlacementPath(placementFile);
             return createVmsFromPlacement(placementPath);
         } else {
             return createSyntheticVms(SYNTHETIC_VM_COUNT);
@@ -276,12 +310,8 @@ public class Simulation {
     }
 
     /**
-     * Creates VMs dynamically based on the active rows in placement.csv.
-     *
-     * Simplification note: We use the existing "medium" VM specification
-     * (2 PEs, 1000 MIPS, 1024 MB RAM, 60 GB storage) for all dynamically created
-     * real-data VMs as a temporary modeling simplification due to the lack of
-     * validated per-VM hardware specifications in the dataset.
+     * Creates VMs dynamically based on the exact per-VM specifications in placement.csv.
+     * Single source of truth: Reads vm_id, host_id, pes, mips, ram_mb, storage_mb.
      */
     public static List<Vm> createVmsFromPlacement(String placementCsvPath) {
         final List<Vm> vmList = new ArrayList<>();
@@ -297,14 +327,34 @@ public class Simulation {
             }
 
             String line;
+            int lineNumber = 1;
             while ((line = reader.readLine()) != null) {
+                lineNumber++;
                 if (line.isBlank()) continue;
                 String[] parts = line.split(",");
                 if (parts.length < 2) continue;
-                long vmId = Long.parseLong(parts[0].trim());
 
-                // Medium VM specification (2 PEs, 1000 MIPS, 1024 MB RAM, 60 GB storage)
-                Vm vm = createVm(vmId, 2, 1000, 1024, 60 * 1024);
+                String vmIdStr = parts[0].trim();
+                long vmId;
+                if (vmIdStr.toUpperCase().startsWith("VM_")) {
+                    vmId = Long.parseLong(vmIdStr.substring(3)) - 1;
+                } else {
+                    vmId = Long.parseLong(vmIdStr);
+                }
+
+                int pes = 1;
+                long mips = 1000;
+                long ramMb = 1024;
+                long storageMb = 60 * 1024;
+
+                if (parts.length >= 6) {
+                    pes = Integer.parseInt(parts[2].trim());
+                    mips = (long) Double.parseDouble(parts[3].trim());
+                    ramMb = (long) Double.parseDouble(parts[4].trim());
+                    storageMb = (long) Double.parseDouble(parts[5].trim());
+                }
+
+                Vm vm = createVm(vmId, pes, mips, ramMb, storageMb);
                 vmList.add(vm);
             }
         } catch (IOException e) {
@@ -323,14 +373,14 @@ public class Simulation {
      */
     public static List<Vm> createSyntheticVms(int count) {
         final List<Vm> vmList = new ArrayList<>();
+        int[] synPes = { 1, 2, 3, 4 };
+        long[] synMips = { 500, 1000, 1500, 2000 };
+        long[] synRam = { 512, 1024, 2048, 3072 };
+        long[] synStorage = { 40 * 1024, 60 * 1024, 80 * 1024, 100 * 1024 };
+
         for (int i = 0; i < count; i++) {
-            int type = (i % 4) + 1;
-            Vm vm = switch (type) {
-                case 1 -> createVm(i, 1, 500, 512, 40 * 1024);
-                case 2 -> createVm(i, 2, 1000, 1024, 60 * 1024);
-                case 3 -> createVm(i, 3, 1500, 2048, 80 * 1024);
-                default -> createVm(i, 4, 2000, 3072, 100 * 1024);
-            };
+            int typeIndex = i % 4;
+            Vm vm = createVm(i, synPes[typeIndex], synMips[typeIndex], synRam[typeIndex], synStorage[typeIndex]);
             vmList.add(vm);
         }
         return vmList;
@@ -360,7 +410,7 @@ public class Simulation {
 
         final VmAllocationPolicy allocationPolicy;
         if (CURRENT_MODE == ExecutionMode.REAL_DATA_EXTERNAL_PLACEMENT) {
-            String placementPath = resolvePlacementPath(PLACEMENT_FILE);
+            String placementPath = resolvePlacementPath(placementFile);
             VmAllocationPolicyFromFile filePolicy = new VmAllocationPolicyFromFile(placementPath);
             filePolicy.validateWithDatacenterHosts(hostList);
             allocationPolicy = filePolicy;
@@ -380,6 +430,7 @@ public class Simulation {
             peList.add(new PeSimple(mipsPerPe));
         }
         final Host host = new HostSimple(ramMB, HOST_BW, storageMB, peList);
+        host.setVmScheduler(new VmSchedulerTimeShared());
 
         final PowerModelHost powerModel = new PowerModelHostSimple(maxPowerWatts, staticPowerWatts);
         host.setPowerModel(powerModel);
@@ -388,18 +439,30 @@ public class Simulation {
         return host;
     }
 
+    private static final String[] BITBRAINS_TRACE_FILES = {
+        "1.csv", "3.csv", "11.csv", "12.csv", "13.csv", "23.csv", "25.csv"
+    };
+
     private static List<Cloudlet> createCloudlets(List<Vm> vmList, Map<Long, Double> vmRequestedUtilizationMap) {
         final List<Cloudlet> cloudletList = new ArrayList<>();
         final UtilizationModel ramUtilizationModel = new UtilizationModelDynamic(0.3);
         final UtilizationModel bwUtilizationModel = new UtilizationModelFull();
 
+        long startEpochTimestamp = 0L;
+        try {
+            if (timestampLabel != null && !timestampLabel.equalsIgnoreCase("N/A")) {
+                startEpochTimestamp = Long.parseLong(timestampLabel.trim());
+            }
+        } catch (NumberFormatException ignored) {}
+
         for (int i = 0; i < vmList.size(); i++) {
             Vm vm = vmList.get(i);
             long vmId = vm.getId();
 
-            // Trace assignment: cycles gracefully through available Bitbrains traces
-            final String tracePath = resolveTracePath("data/vm" + ((i % 4) + 1) + ".csv");
-            final BitbrainsUtilizationModel cpuUtilizationModel = new BitbrainsUtilizationModel(tracePath);
+            // Deterministic trace mapping: Maps active VMs to their actual Bitbrains fastStorage trace
+            final String tracePath = resolveTracePathForVm(i, vm);
+            final BitbrainsUtilizationModel cpuUtilizationModel =
+                new BitbrainsUtilizationModel(tracePath, startEpochTimestamp);
             final long length = 50_000_000; // Sufficiently large to execute across the full observation window
             final int pes = 1;
 
@@ -415,9 +478,41 @@ public class Simulation {
         return cloudletList;
     }
 
-    private static void exportResults(String algorithmName, Datacenter datacenter,
-                                      List<Vm> vmList, double totalEnergyWh,
-                                      int slaViolations, double avgCpuUtil, int activePmCount) {
+    private static String resolveTracePathForVm(int vmIndex, Vm vm) {
+        int traceIdx = vmIndex % BITBRAINS_TRACE_FILES.length;
+        String traceFileName = BITBRAINS_TRACE_FILES[traceIdx];
+
+        // 1. Direct dataset fastStorage directory
+        String[] candidateDirs = {
+            "../dataset/fastStorage/2013-8",
+            "dataset/fastStorage/2013-8",
+            "cloudsim/data",
+            "data",
+            "../cloudsim/data"
+        };
+
+        for (String dir : candidateDirs) {
+            File directFile = new File(dir, traceFileName);
+            if (directFile.exists() && directFile.isFile()) {
+                return directFile.getPath();
+            }
+        }
+
+        // 2. Fallback to local data/vm{1..4}.csv if dataset directory is not colocated
+        int legacyIdx = (vmIndex % 4) + 1;
+        for (String dir : candidateDirs) {
+            File legacyFile = new File(dir, "vm" + legacyIdx + ".csv");
+            if (legacyFile.exists() && legacyFile.isFile()) {
+                return legacyFile.getPath();
+            }
+        }
+
+        return resolveTracePath("data/vm1.csv");
+    }
+
+    private static void exportResults(String algorithmName, String epoch, String timestamp,
+                                      Datacenter datacenter, List<Vm> vmList,
+                                      double totalEnergyWh, int slaViolations, double avgCpuUtil, int activePmCount) {
         try {
             File resultsDir = resolveDirectory("../results", "results");
             if (!resultsDir.exists()) {
@@ -427,10 +522,10 @@ public class Simulation {
             boolean isNew = !f.exists() || f.length() == 0;
             try (java.io.FileWriter fw = new java.io.FileWriter(f, true)) {
                 if (isNew) {
-                    fw.write("Algorithm,Energy_Wh,SLA_Violations,Avg_CPU,Active_PM,Migrations\n");
+                    fw.write("Algorithm,Epoch,Timestamp,VM_Count,Active_PM,Energy_Wh,SLA_Violations,Avg_CPU,Migrations\n");
                 }
-                fw.write(String.format(java.util.Locale.US, "%s,%.4f,%d,%.4f,%d,0%n",
-                    algorithmName, totalEnergyWh, slaViolations, avgCpuUtil, activePmCount));
+                fw.write(String.format(java.util.Locale.US, "%s,%s,%s,%d,%d,%.4f,%d,%.4f,0%n",
+                    algorithmName, epoch, timestamp, vmList.size(), activePmCount, totalEnergyWh, slaViolations, avgCpuUtil));
             }
         } catch (IOException e) {
             System.err.println("Failed to write results: " + e.getMessage());
