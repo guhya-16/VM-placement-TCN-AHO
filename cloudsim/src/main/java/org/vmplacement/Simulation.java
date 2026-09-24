@@ -479,35 +479,8 @@ public class Simulation {
     }
 
     private static String resolveTracePathForVm(int vmIndex, Vm vm) {
-        int traceIdx = vmIndex % BITBRAINS_TRACE_FILES.length;
-        String traceFileName = BITBRAINS_TRACE_FILES[traceIdx];
-
-        // 1. Direct dataset fastStorage directory
-        String[] candidateDirs = {
-            "../dataset/fastStorage/2013-8",
-            "dataset/fastStorage/2013-8",
-            "cloudsim/data",
-            "data",
-            "../cloudsim/data"
-        };
-
-        for (String dir : candidateDirs) {
-            File directFile = new File(dir, traceFileName);
-            if (directFile.exists() && directFile.isFile()) {
-                return directFile.getPath();
-            }
-        }
-
-        // 2. Fallback to local data/vm{1..4}.csv if dataset directory is not colocated
-        int legacyIdx = (vmIndex % 4) + 1;
-        for (String dir : candidateDirs) {
-            File legacyFile = new File(dir, "vm" + legacyIdx + ".csv");
-            if (legacyFile.exists() && legacyFile.isFile()) {
-                return legacyFile.getPath();
-            }
-        }
-
-        return resolveTracePath("data/vm1.csv");
+        String vmIdStr = "VM_" + String.format("%03d", vm.getId() + 1);
+        return TraceResolver.resolveTracePath(vmIdStr);
     }
 
     private static void exportResults(String algorithmName, String epoch, String timestamp,

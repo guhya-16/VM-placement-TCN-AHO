@@ -9,11 +9,11 @@ AGGREGATE STATISTICAL COMPARISON ACROSS ALL 997 DECISION EPOCHS:
 ------------------------------------------------------------------------------------------
 Metric                         | PABFD (Real Data) | Standard HO      | Adaptive HO     
 ------------------------------------------------------------------------------------------
-Mean Energy (Wh / epoch)       | 1425.9729        | 1425.6872        | 1425.6881       
-Median Energy (Wh / epoch)     | 1425.6525        | 1425.4401        | 1425.4393       
-Total Energy (Wh)              | 1421695.00       | 1421410.15       | 1421411.02      
-Total SLA Violations           | 48               | 48               | 48              
-Mean CPU Utilization           | 0.0056           | 0.0053           | 0.0053          
+Mean Energy (Wh / epoch)       | 1425.6737        | 1425.4491        | 1425.4505       
+Median Energy (Wh / epoch)     | 1425.1261        | 1424.9924        | 1424.9924       
+Total Energy (Wh)              | 1421396.63       | 1421172.73       | 1421174.20      
+Total SLA Violations           | 16               | 16               | 16              
+Mean CPU Utilization           | 0.0045           | 0.0044           | 0.0044          
 Total Migrations               | 1                | 5467             | 5576            
 Mean Active PMs                | 1.00             | 1.00             | 1.00            
 ==========================================================================================
