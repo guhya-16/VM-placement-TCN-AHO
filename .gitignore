@@ -49,6 +49,7 @@ colab_stage5_gpu/
 
 # Logs and Scratch Dirs
 *.log
+logs/
 scratch/
 .system_generated/
 results/*.log

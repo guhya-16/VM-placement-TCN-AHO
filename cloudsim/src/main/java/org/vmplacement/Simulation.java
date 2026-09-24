@@ -107,6 +107,19 @@ public class Simulation {
 
     private static final long HOST_BW = 10_000;
 
+    /**
+     * Synchronous candidate placement evaluation entry point for Person 3.
+     * Evaluates exactly the candidate mapping supplied in PlacementRequest
+     * against real CloudSim Plus physical simulation.
+     *
+     * @param request Candidate placement evaluation request
+     * @param state DatacenterState tracking the finalized previous epoch state
+     * @return Physical metrics in PlacementEvaluationResult
+     */
+    public static PlacementEvaluationResult evaluatePlacement(PlacementRequest request, DatacenterState state) {
+        return PlacementEvaluator.evaluate(request, state);
+    }
+
     public static void main(String[] args) {
         // Parse CLI arguments: [placement_file_or_mode] [algorithm_label] [epoch] [timestamp]
         if (args != null && args.length > 0) {
