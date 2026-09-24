@@ -16,6 +16,8 @@ public class HippopotamusOptimization {
     private final List<Hippopotamus> population;
 
     private Hippopotamus bestHippo;
+    private int currentIteration = 0;
+    private int bestIteration = 0;
 
     /*
      * Used for fair comparison with Adaptive HO.
@@ -139,6 +141,8 @@ public class HippopotamusOptimization {
 
         population.clear();
         bestHippo = null;
+        currentIteration = 0;
+        bestIteration = 0;
 
         initializePopulation();
 
@@ -161,6 +165,8 @@ public class HippopotamusOptimization {
         for (int iteration = 1;
              iteration <= maxIterations;
              iteration++) {
+
+            currentIteration = iteration;
 
             for (Hippopotamus hippo : population) {
 
@@ -612,8 +618,17 @@ public class HippopotamusOptimization {
                                 copySolution(candidate),
                                 candidateFitness
                         );
+                bestIteration = currentIteration;
             }
         }
+    }
+
+    public int getBestIteration() {
+        return bestIteration;
+    }
+
+    public PlacementSolution getBestPlacement() {
+        return getBestSolution();
     }
 
     private void updateGlobalBest() {
@@ -632,6 +647,7 @@ public class HippopotamusOptimization {
                                 ),
                                 hippo.getFitness()
                         );
+                bestIteration = 0;
             }
         }
     }
