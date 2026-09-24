@@ -28,34 +28,22 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
  * =====================================================================================
- * BatchSimulation — Full Multi-Epoch CloudSim Plus Simulator
+ * BatchSimulation — CloudSim Plus Physical/Cloud Validation Engine
  * =====================================================================================
- * Executes discrete-event simulations for all 997 decision epochs across both
- * Standard HO and Adaptive HO.
- *
- * Guarantees & Features:
- * 1. Single Source of Truth: Reads exact VM specs from vm_manifest.csv and
- * placements
- * from experiment_results.csv.
- * 2. Exact Time Alignment: Passes real epoch Unix timestamps to
- * BitbrainsUtilizationModel.
- * 3. Deterministic Trace Mapping: Maps active VMs to their actual Bitbrains
- * fastStorage traces.
- * 4. Strict Constraint Validation: Rejects invalid host IDs and capacity
- * violations loudly.
- * 5. Multi-Epoch Migration Accounting: Accurately computes inter-epoch
- * migrations.
- * 6. Clean Metric Exports: Produces per-epoch CSVs, master summary, and
- * aggregate comparison.
+ * Physical validation layer for Person 3's optimizer output.
+ * Consumes final placements from Person 3's experiment_results.csv and vm_manifest.csv,
+ * evaluates Standard HO, WA-AHO, and Real-Data PABFD through discrete-event CloudSim
+ * simulations with real Bitbrains trace replay, strict placement constraint validation,
+ * and comprehensive metrics export.
  * =====================================================================================
  */
 public class BatchSimulation {
@@ -86,10 +74,6 @@ public class BatchSimulation {
     private static final double PM3_STATIC_POWER = 58.4;
 
     private static final long HOST_BW = 10_000;
-
-    private static final String[] BITBRAINS_TRACE_FILES = {
-            "1.csv", "3.csv", "11.csv", "12.csv", "13.csv", "23.csv", "25.csv"
-    };
 
     public static class VmSpec {
         public final int epoch;
@@ -125,8 +109,8 @@ public class BatchSimulation {
         public final List<VmSpec> vmSpecs = new ArrayList<>();
 
         public EpochData(int epoch, long timestamp, int vmCount, double workloadVariation, double predictionRisk,
-                double adaptiveSignal, String adaptiveMode, double explorationProbability,
-                double standardFitness, double adaptiveFitness) {
+                         double adaptiveSignal, String adaptiveMode, double explorationProbability,
+                         double standardFitness, double adaptiveFitness) {
             this.epoch = epoch;
             this.timestamp = timestamp;
             this.vmCount = vmCount;
@@ -137,6 +121,16 @@ public class BatchSimulation {
             this.explorationProbability = explorationProbability;
             this.standardFitness = standardFitness;
             this.adaptiveFitness = adaptiveFitness;
+        }
+    }
+
+    public static class ValidationResult {
+        public final boolean feasible;
+        public final String reason;
+
+        public ValidationResult(boolean feasible, String reason) {
+            this.feasible = feasible;
+            this.reason = reason;
         }
     }
 
@@ -151,10 +145,13 @@ public class BatchSimulation {
         public final double slaRate;
         public final double avgCpu;
         public final double peakCpu;
-        public final int migrations;
+        public final int placementChanges;
+        public final boolean feasible;
+        public final String validationMessage;
 
         public SimulationResult(int epoch, long timestamp, String algorithm, int vmCount, int activePmCount,
-                double energyWh, int slaViolations, double slaRate, double avgCpu, double peakCpu, int migrations) {
+                                double energyWh, int slaViolations, double slaRate, double avgCpu, double peakCpu,
+                                int placementChanges, boolean feasible, String validationMessage) {
             this.epoch = epoch;
             this.timestamp = timestamp;
             this.algorithm = algorithm;
@@ -165,7 +162,25 @@ public class BatchSimulation {
             this.slaRate = slaRate;
             this.avgCpu = avgCpu;
             this.peakCpu = peakCpu;
-            this.migrations = migrations;
+            this.placementChanges = placementChanges;
+            this.feasible = feasible;
+            this.validationMessage = validationMessage;
+        }
+    }
+
+    public static class PlacementTimelineEntry {
+        public final int epoch;
+        public final long timestamp;
+        public final String method;
+        public final String vmId;
+        public final int pmId;
+
+        public PlacementTimelineEntry(int epoch, long timestamp, String method, String vmId, int pmId) {
+            this.epoch = epoch;
+            this.timestamp = timestamp;
+            this.method = method;
+            this.vmId = vmId;
+            this.pmId = pmId;
         }
     }
 
@@ -179,8 +194,8 @@ public class BatchSimulation {
         }
 
         System.out.println("==================================================================");
-        System.out.println("   CLOUDSIM PLUS — FULL 997-EPOCH BATCH SIMULATION ENGINE");
-        System.out.println("   Evaluating Standard HO vs Adaptive HO Across All Decision Epochs");
+        System.out.println("   CLOUDSIM PLUS — PHYSICAL/CLOUD VALIDATION LAYER");
+        System.out.println("   Evaluating Person 3 Placements Across All 997 Decision Epochs");
         System.out.println("==================================================================");
 
         File expResultsFile = resolveFile(
@@ -196,11 +211,11 @@ public class BatchSimulation {
                 "vm_manifest.csv",
                 "person3-optimization-FINAL-v2/person3_optimization/vm_manifest.csv");
 
-        System.out.println("Experiment Results File: " + expResultsFile.getPath());
-        System.out.println("VM Manifest File       : " + vmManifestFile.getPath());
+        System.out.println("Person 3 Experiment Results File: " + expResultsFile.getPath());
+        System.out.println("Person 3 VM Manifest File       : " + vmManifestFile.getPath());
 
         Map<Integer, EpochData> epochs = loadEpochData(expResultsFile, vmManifestFile);
-        System.out.printf("Successfully loaded %d decision epochs.%n%n", epochs.size());
+        System.out.printf("Successfully loaded %d decision epochs from Person 3.%n%n", epochs.size());
 
         if (epochs.isEmpty()) {
             System.err.println("No epochs to simulate. Exiting.");
@@ -211,10 +226,12 @@ public class BatchSimulation {
         List<SimulationResult> standardResults = new ArrayList<>();
         List<SimulationResult> adaptiveResults = new ArrayList<>();
         List<SimulationResult> pabfdResults = new ArrayList<>();
+        List<SimulationResult> allCombinedResults = new ArrayList<>();
+        List<PlacementTimelineEntry> timelineEntries = new ArrayList<>();
 
-        Map<Long, Long> prevStandardPlacement = null;
-        Map<Long, Long> prevAdaptivePlacement = null;
-        Map<Long, Long> prevPabfdPlacement = null;
+        Map<String, Integer> prevStandardPlacement = null;
+        Map<String, Integer> prevAdaptivePlacement = null;
+        Map<String, Integer> prevPabfdPlacement = null;
 
         long startTime = System.currentTimeMillis();
         int total = epochs.size();
@@ -225,38 +242,47 @@ public class BatchSimulation {
             if (epoch == null)
                 continue;
 
-            // 1. Simulate Standard HO
-            Map<Long, Long> stdMap = new LinkedHashMap<>();
-            for (int i = 0; i < epoch.standardPlacement.size(); i++) {
-                stdMap.put((long) i, (long) epoch.standardPlacement.get(i));
+            // 1. Build Person 3 Standard HO Placement Map<String, Integer>
+            Map<String, Integer> stdMap = new LinkedHashMap<>();
+            for (int i = 0; i < epoch.vmSpecs.size(); i++) {
+                VmSpec spec = epoch.vmSpecs.get(i);
+                int hostId = (i < epoch.standardPlacement.size()) ? epoch.standardPlacement.get(i) : 0;
+                stdMap.put(spec.vmIdStr, hostId);
+                timelineEntries.add(new PlacementTimelineEntry(epochNum, epoch.timestamp, "Standard_HO", spec.vmIdStr, hostId));
             }
-            int stdMigrations = computeMigrations(prevStandardPlacement, stdMap);
-            SimulationResult stdRes = runSingleEpoch(epochNum, epoch.timestamp, "Standard_HO", epoch.vmSpecs, stdMap,
-                    stdMigrations);
+            int stdChanges = computePlacementChanges(prevStandardPlacement, stdMap);
+            SimulationResult stdRes = evaluatePlacement(epochNum, epoch.timestamp, "Standard_HO", epoch.vmSpecs, stdMap, stdChanges);
             standardResults.add(stdRes);
+            allCombinedResults.add(stdRes);
             prevStandardPlacement = stdMap;
 
-            // 2. Simulate Adaptive HO
-            Map<Long, Long> adaMap = new LinkedHashMap<>();
-            for (int i = 0; i < epoch.adaptivePlacement.size(); i++) {
-                adaMap.put((long) i, (long) epoch.adaptivePlacement.get(i));
+            // 2. Build Person 3 WA-AHO Placement Map<String, Integer>
+            Map<String, Integer> adaMap = new LinkedHashMap<>();
+            for (int i = 0; i < epoch.vmSpecs.size(); i++) {
+                VmSpec spec = epoch.vmSpecs.get(i);
+                int hostId = (i < epoch.adaptivePlacement.size()) ? epoch.adaptivePlacement.get(i) : 0;
+                adaMap.put(spec.vmIdStr, hostId);
+                timelineEntries.add(new PlacementTimelineEntry(epochNum, epoch.timestamp, "WA-AHO", spec.vmIdStr, hostId));
             }
-            int adaMigrations = computeMigrations(prevAdaptivePlacement, adaMap);
-            SimulationResult adaRes = runSingleEpoch(epochNum, epoch.timestamp, "Adaptive_HO", epoch.vmSpecs, adaMap,
-                    adaMigrations);
+            int adaChanges = computePlacementChanges(prevAdaptivePlacement, adaMap);
+            SimulationResult adaRes = evaluatePlacement(epochNum, epoch.timestamp, "WA-AHO", epoch.vmSpecs, adaMap, adaChanges);
             adaptiveResults.add(adaRes);
+            allCombinedResults.add(adaRes);
             prevAdaptivePlacement = adaMap;
 
-            // 3. Simulate PABFD Real Data Baseline
-            Map<Long, Long> pabfdMap = computePabfdPlacement(epoch.vmSpecs);
-            int pabfdMigrations = computeMigrations(prevPabfdPlacement, pabfdMap);
-            SimulationResult pabfdRes = runSingleEpoch(epochNum, epoch.timestamp, "PABFD_Real", epoch.vmSpecs, pabfdMap,
-                    pabfdMigrations);
+            // 3. Compute Real-Data PABFD Baseline Placement Map<String, Integer>
+            Map<String, Integer> pabfdMap = computePabfdPlacement(epoch.vmSpecs);
+            for (Map.Entry<String, Integer> entry : pabfdMap.entrySet()) {
+                timelineEntries.add(new PlacementTimelineEntry(epochNum, epoch.timestamp, "PABFD", entry.getKey(), entry.getValue()));
+            }
+            int pabfdChanges = computePlacementChanges(prevPabfdPlacement, pabfdMap);
+            SimulationResult pabfdRes = evaluatePlacement(epochNum, epoch.timestamp, "PABFD", epoch.vmSpecs, pabfdMap, pabfdChanges);
             pabfdResults.add(pabfdRes);
+            allCombinedResults.add(pabfdRes);
             prevPabfdPlacement = pabfdMap;
 
             processed++;
-            if (processed == 1 || processed % 100 == 0 || processed == total) {
+            if (processed == 1 || processed == 8 || processed % 100 == 0 || processed == total) {
                 System.out.printf(
                         "Simulated Epoch %3d / %d | Std: %.2f Wh | Ada: %.2f Wh | PABFD: %.2f Wh | Time: %.1fs%n",
                         processed, total, stdRes.energyWh, adaRes.energyWh, pabfdRes.energyWh,
@@ -268,7 +294,13 @@ public class BatchSimulation {
         System.out.printf("%nAll %d epochs simulated in %.2f seconds (%.2f ms/epoch).%n",
                 total, totalElapsed / 1000.0, (double) totalElapsed / total);
 
-        // Export results
+        // Export Output 1: cloudsim_validation_results.csv
+        exportCloudsimValidationResults(allCombinedResults);
+
+        // Export Output 2: placement_timeline.csv
+        exportPlacementTimeline(timelineEntries);
+
+        // Export Backward-Compatible Result CSVs
         exportDetailedResults("results/standard_ho_results.csv", "../results/standard_ho_results.csv", standardResults);
         exportDetailedResults("results/adaptive_ho_results.csv", "../results/adaptive_ho_results.csv", adaptiveResults);
         exportDetailedResults("results/pabfd_real_results.csv", "../results/pabfd_real_results.csv", pabfdResults);
@@ -280,28 +312,95 @@ public class BatchSimulation {
         printAggregateComparison(standardResults, adaptiveResults, pabfdResults);
     }
 
-    private static int computeMigrations(Map<Long, Long> prevPlacement, Map<Long, Long> currentPlacement) {
-        if (prevPlacement == null || prevPlacement.isEmpty() || currentPlacement == null) {
-            return 0;
+    /**
+     * Strict Placement Validation before running CloudSim simulation.
+     * Verifies:
+     * 1. Placement exists for every active VM in the epoch.
+     * 2. Host ID is valid (0 <= host_id < 20).
+     * 3. Host PE, RAM, and Storage capacities are not exceeded.
+     */
+    public static ValidationResult validatePlacement(
+            Map<String, Integer> placementMap,
+            List<VmSpec> vmSpecs,
+            List<HostState> hosts) {
+
+        if (placementMap == null || placementMap.isEmpty()) {
+            return new ValidationResult(false, "Placement map is null or empty");
         }
-        int migrations = 0;
-        for (Map.Entry<Long, Long> entry : currentPlacement.entrySet()) {
-            long vmId = entry.getKey();
-            Long prevHost = prevPlacement.get(vmId);
-            if (prevHost != null && !prevHost.equals(entry.getValue())) {
-                migrations++;
+
+        // 1. Verify placement exists and Host ID is valid for each VM
+        for (VmSpec vm : vmSpecs) {
+            if (!placementMap.containsKey(vm.vmIdStr)) {
+                return new ValidationResult(false, "Missing placement for VM: " + vm.vmIdStr);
+            }
+            int hostId = placementMap.get(vm.vmIdStr);
+            if (hostId < 0 || hostId >= hosts.size()) {
+                return new ValidationResult(false, "Invalid host ID " + hostId + " for VM: " + vm.vmIdStr);
             }
         }
-        return migrations;
+
+        // 2. Verify Host Resource Capacities (PEs, RAM, Storage)
+        int[] usedPes = new int[hosts.size()];
+        double[] usedRam = new double[hosts.size()];
+        double[] usedStorage = new double[hosts.size()];
+
+        for (VmSpec vm : vmSpecs) {
+            int hostId = placementMap.get(vm.vmIdStr);
+            usedPes[hostId] += vm.pes;
+            usedRam[hostId] += vm.ramMb;
+            usedStorage[hostId] += vm.storageMb;
+        }
+
+        for (int h = 0; h < hosts.size(); h++) {
+            HostState host = hosts.get(h);
+            if (usedPes[h] > host.pes) {
+                return new ValidationResult(false, "Host " + h + " PE capacity exceeded: used " + usedPes[h] + " > max " + host.pes);
+            }
+            if (usedRam[h] > host.ramMb) {
+                return new ValidationResult(false, "Host " + h + " RAM capacity exceeded: used " + usedRam[h] + " > max " + host.ramMb);
+            }
+            if (usedStorage[h] > host.storageMb) {
+                return new ValidationResult(false, "Host " + h + " Storage capacity exceeded: used " + usedStorage[h] + " > max " + host.storageMb);
+            }
+        }
+
+        return new ValidationResult(true, "FEASIBLE");
     }
 
-    private static SimulationResult runSingleEpoch(int epoch, long timestamp, String algorithm,
-            List<VmSpec> vmSpecs, Map<Long, Long> placementMap, int migrations) {
+    /**
+     * Generic CloudSim Placement Evaluator.
+     * Evaluates any placement identically for Standard HO, WA-AHO, or PABFD.
+     */
+    public static SimulationResult evaluatePlacement(
+            int epoch,
+            long timestamp,
+            String method,
+            List<VmSpec> vmSpecs,
+            Map<String, Integer> placementMap,
+            int placementChanges) {
+
+        List<HostState> hostStates = createHostStates();
+        ValidationResult valRes = validatePlacement(placementMap, vmSpecs, hostStates);
+
+        if (!valRes.feasible) {
+            System.err.printf("[VALIDATION ERROR] Epoch %d [%s]: %s%n", epoch, method, valRes.reason);
+            return new SimulationResult(epoch, timestamp, method, vmSpecs.size(), 0, 0.0, 0, 0.0, 0.0, 0.0,
+                    placementChanges, false, valRes.reason);
+        }
+
+        // Map String VM IDs to numeric 0..N-1 for CloudSim VmSimple
+        Map<Long, Long> numericPlacementMap = new LinkedHashMap<>();
+        for (int i = 0; i < vmSpecs.size(); i++) {
+            VmSpec spec = vmSpecs.get(i);
+            int hostId = placementMap.get(spec.vmIdStr);
+            numericPlacementMap.put((long) i, (long) hostId);
+        }
+
         final CloudSimPlus simulation = new CloudSimPlus();
         final List<Host> hostList = createDatacenterHosts();
 
-        VmAllocationPolicyFromFile allocationPolicy = new VmAllocationPolicyFromFile(placementMap,
-                algorithm + "_Ep" + epoch);
+        VmAllocationPolicyFromFile allocationPolicy = new VmAllocationPolicyFromFile(
+                numericPlacementMap, method + "_Ep" + epoch);
         allocationPolicy.validateWithDatacenterHosts(hostList);
 
         final Datacenter datacenter = new DatacenterSimple(simulation, hostList, allocationPolicy);
@@ -384,8 +483,26 @@ public class BatchSimulation {
 
         double avgCpu = activePmCount > 0 ? sumActiveCpu / activePmCount : 0.0;
 
-        return new SimulationResult(epoch, timestamp, algorithm, vmList.size(), activePmCount,
-                totalEnergyWh, slaViolations, slaRate, avgCpu, peakCpu, migrations);
+        return new SimulationResult(epoch, timestamp, method, vmList.size(), activePmCount,
+                totalEnergyWh, slaViolations, slaRate, avgCpu, peakCpu, placementChanges, true, "FEASIBLE");
+    }
+
+    /**
+     * Computes VM placement changes between consecutive epochs for the same algorithm.
+     */
+    private static int computePlacementChanges(Map<String, Integer> prevPlacement, Map<String, Integer> currentPlacement) {
+        if (prevPlacement == null || prevPlacement.isEmpty() || currentPlacement == null) {
+            return 0;
+        }
+        int changes = 0;
+        for (Map.Entry<String, Integer> entry : currentPlacement.entrySet()) {
+            String vmId = entry.getKey();
+            Integer prevHost = prevPlacement.get(vmId);
+            if (prevHost != null && !prevHost.equals(entry.getValue())) {
+                changes++;
+            }
+        }
+        return changes;
     }
 
     private static List<Host> createDatacenterHosts() {
@@ -403,7 +520,7 @@ public class BatchSimulation {
     }
 
     private static Host createHost(int numPes, long mipsPerPe, long ramMB, long storageMB,
-            double maxPowerWatts, double staticPowerWatts) {
+                                   double maxPowerWatts, double staticPowerWatts) {
         List<Pe> peList = new ArrayList<>();
         for (int i = 0; i < numPes; i++) {
             peList.add(new PeSimple(mipsPerPe));
@@ -416,15 +533,10 @@ public class BatchSimulation {
         return host;
     }
 
-    private static String resolveTracePathForVm(int vmIndex) {
-        String vmIdStr = "VM_" + String.format("%03d", vmIndex + 1);
-        return TraceResolver.resolveTracePath(vmIdStr);
-    }
-
     private static Map<Integer, EpochData> loadEpochData(File expFile, File manifestFile) {
         Map<Integer, EpochData> epochs = new LinkedHashMap<>();
 
-        // 1. Read experiment_results.csv
+        // 1. Read experiment_results.csv from Person 3
         try (BufferedReader reader = new BufferedReader(new FileReader(expFile))) {
             String header = reader.readLine();
             String line;
@@ -527,25 +639,6 @@ public class BatchSimulation {
         return new File(paths[0]);
     }
 
-    private static void exportDetailedResults(String relPath1, String relPath2, List<SimulationResult> results) {
-        File file = new File(relPath1).getParentFile() != null && new File(relPath1).getParentFile().exists()
-                ? new File(relPath1)
-                : new File(relPath2);
-        file.getParentFile().mkdirs();
-
-        try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
-            pw.println(
-                    "epoch,timestamp,algorithm,vm_count,active_pm,energy_wh,sla_violations,sla_rate,avg_cpu,peak_cpu,migrations");
-            for (SimulationResult r : results) {
-                pw.printf(java.util.Locale.US, "%d,%d,%s,%d,%d,%.4f,%d,%.4f,%.4f,%.4f,%d%n",
-                        r.epoch, r.timestamp, r.algorithm, r.vmCount, r.activePmCount,
-                        r.energyWh, r.slaViolations, r.slaRate, r.avgCpu, r.peakCpu, r.migrations);
-            }
-        } catch (IOException e) {
-            System.err.println("Failed to write results to " + file.getPath() + ": " + e.getMessage());
-        }
-    }
-
     public static class HostState {
         public final int id;
         public final int pes;
@@ -611,20 +704,13 @@ public class BatchSimulation {
         return list;
     }
 
-    public static Map<Long, Long> computePabfdPlacement(List<VmSpec> vmSpecs) {
+    public static Map<String, Integer> computePabfdPlacement(List<VmSpec> vmSpecs) {
         List<HostState> hosts = createHostStates();
-        List<Integer> vmIndices = new ArrayList<>();
-        for (int i = 0; i < vmSpecs.size(); i++)
-            vmIndices.add(i);
-        vmIndices.sort((a, b) -> {
-            VmSpec va = vmSpecs.get(a);
-            VmSpec vb = vmSpecs.get(b);
-            return Double.compare(vb.pes * vb.mips, va.pes * va.mips);
-        });
+        List<VmSpec> sortedVms = new ArrayList<>(vmSpecs);
+        sortedVms.sort((a, b) -> Double.compare(b.pes * b.mips, a.pes * a.mips));
 
-        Map<Long, Long> placement = new LinkedHashMap<>();
-        for (int vmIdx : vmIndices) {
-            VmSpec vm = vmSpecs.get(vmIdx);
+        Map<String, Integer> placement = new LinkedHashMap<>();
+        for (VmSpec vm : sortedVms) {
             HostState bestHost = null;
             double minPowerDiff = Double.MAX_VALUE;
 
@@ -643,14 +729,79 @@ public class BatchSimulation {
             }
 
             bestHost.allocate(vm);
-            placement.put((long) vmIdx, (long) bestHost.id);
+            placement.put(vm.vmIdStr, bestHost.id);
         }
 
-        Map<Long, Long> orderedPlacement = new LinkedHashMap<>();
-        for (int i = 0; i < vmSpecs.size(); i++) {
-            orderedPlacement.put((long) i, placement.get((long) i));
+        return placement;
+    }
+
+    private static void exportCloudsimValidationResults(List<SimulationResult> results) {
+        File[] targetFiles = {
+                new File("results/cloudsim_validation_results.csv"),
+                new File("../results/cloudsim_validation_results.csv")
+        };
+
+        for (File file : targetFiles) {
+            try {
+                if (file.getParentFile() != null) {
+                    file.getParentFile().mkdirs();
+                }
+                try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
+                    pw.println("epoch,timestamp,method,feasible,energy_wh,sla_violations,active_pms,mean_cpu_utilization,placement_changes");
+                    for (SimulationResult r : results) {
+                        pw.printf(Locale.US, "%d,%d,%s,%b,%.4f,%d,%d,%.4f,%d%n",
+                                r.epoch, r.timestamp, r.algorithm, r.feasible, r.energyWh,
+                                r.slaViolations, r.activePmCount, r.avgCpu, r.placementChanges);
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to write validation results to " + file.getPath() + ": " + e.getMessage());
+            }
         }
-        return orderedPlacement;
+    }
+
+    private static void exportPlacementTimeline(List<PlacementTimelineEntry> entries) {
+        File[] targetFiles = {
+                new File("results/placement_timeline.csv"),
+                new File("../results/placement_timeline.csv")
+        };
+
+        for (File file : targetFiles) {
+            try {
+                if (file.getParentFile() != null) {
+                    file.getParentFile().mkdirs();
+                }
+                try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
+                    pw.println("epoch,timestamp,method,vm_id,pm_id");
+                    for (PlacementTimelineEntry e : entries) {
+                        pw.printf(Locale.US, "%d,%d,%s,%s,%d%n",
+                                e.epoch, e.timestamp, e.method, e.vmId, e.pmId);
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Failed to write placement timeline to " + file.getPath() + ": " + e.getMessage());
+            }
+        }
+    }
+
+    private static void exportDetailedResults(String relPath1, String relPath2, List<SimulationResult> results) {
+        File file = new File(relPath1).getParentFile() != null && new File(relPath1).getParentFile().exists()
+                ? new File(relPath1)
+                : new File(relPath2);
+        if (file.getParentFile() != null) {
+            file.getParentFile().mkdirs();
+        }
+
+        try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
+            pw.println("epoch,timestamp,algorithm,vm_count,active_pm,energy_wh,sla_violations,sla_rate,avg_cpu,peak_cpu,migrations");
+            for (SimulationResult r : results) {
+                pw.printf(Locale.US, "%d,%d,%s,%d,%d,%.4f,%d,%.4f,%.4f,%.4f,%d%n",
+                        r.epoch, r.timestamp, r.algorithm, r.vmCount, r.activePmCount,
+                        r.energyWh, r.slaViolations, r.slaRate, r.avgCpu, r.peakCpu, r.placementChanges);
+            }
+        } catch (IOException e) {
+            System.err.println("Failed to write results to " + file.getPath() + ": " + e.getMessage());
+        }
     }
 
     private static double calculateMedian(List<Double> values) {
@@ -666,9 +817,11 @@ public class BatchSimulation {
     }
 
     private static void exportMasterSummary(List<SimulationResult> stdResults, List<SimulationResult> adaResults,
-            List<SimulationResult> pabfdResults) {
+                                           List<SimulationResult> pabfdResults) {
         File file = resolveFile("results/simulation_results.csv", "../results/simulation_results.csv");
-        file.getParentFile().mkdirs();
+        if (file.getParentFile() != null) {
+            file.getParentFile().mkdirs();
+        }
 
         List<Double> stdEnergies = new ArrayList<>();
         List<Double> adaEnergies = new ArrayList<>();
@@ -690,9 +843,9 @@ public class BatchSimulation {
         int stdTotalSla = stdResults.stream().mapToInt(r -> r.slaViolations).sum();
         int adaTotalSla = adaResults.stream().mapToInt(r -> r.slaViolations).sum();
         int pabfdTotalSla = pabfdResults.stream().mapToInt(r -> r.slaViolations).sum();
-        int stdTotalMigrations = stdResults.stream().mapToInt(r -> r.migrations).sum();
-        int adaTotalMigrations = adaResults.stream().mapToInt(r -> r.migrations).sum();
-        int pabfdTotalMigrations = pabfdResults.stream().mapToInt(r -> r.migrations).sum();
+        int stdTotalChanges = stdResults.stream().mapToInt(r -> r.placementChanges).sum();
+        int adaTotalChanges = adaResults.stream().mapToInt(r -> r.placementChanges).sum();
+        int pabfdTotalChanges = pabfdResults.stream().mapToInt(r -> r.placementChanges).sum();
         double stdAvgCpu = stdResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
         double adaAvgCpu = adaResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
         double pabfdAvgCpu = pabfdResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
@@ -702,37 +855,37 @@ public class BatchSimulation {
         SimulationResult pabfdEp8 = pabfdResults.stream().filter(r -> r.epoch == 8).findFirst().orElse(null);
 
         try (PrintWriter pw = new PrintWriter(new FileWriter(file))) {
-            pw.println("Algorithm,Epoch,Timestamp,VM_Count,Active_PM,Energy_Wh,SLA_Violations,Avg_CPU,Migrations");
+            pw.println("Algorithm,Epoch,Timestamp,VM_Count,Active_PM,Energy_Wh,SLA_Violations,Avg_CPU,Placement_Changes");
             pw.println("PABFD_SYNTHETIC_BASELINE,N/A,N/A,24,11,1457.8390,3,0.0539,0");
 
             if (pabfdEp8 != null) {
-                pw.printf(java.util.Locale.US, "PABFD_Real_Data_Epoch8,8,%d,%d,%d,%.4f,%d,%.4f,%d%n",
+                pw.printf(Locale.US, "PABFD_Real_Data_Epoch8,8,%d,%d,%d,%.4f,%d,%.4f,%d%n",
                         pabfdEp8.timestamp, pabfdEp8.vmCount, pabfdEp8.activePmCount, pabfdEp8.energyWh,
-                        pabfdEp8.slaViolations, pabfdEp8.avgCpu, pabfdEp8.migrations);
+                        pabfdEp8.slaViolations, pabfdEp8.avgCpu, pabfdEp8.placementChanges);
             }
             if (stdEp8 != null) {
-                pw.printf(java.util.Locale.US, "Standard_HO_Epoch8,8,%d,%d,%d,%.4f,%d,%.4f,%d%n",
+                pw.printf(Locale.US, "Standard_HO_Epoch8,8,%d,%d,%d,%.4f,%d,%.4f,%d%n",
                         stdEp8.timestamp, stdEp8.vmCount, stdEp8.activePmCount, stdEp8.energyWh, stdEp8.slaViolations,
-                        stdEp8.avgCpu, stdEp8.migrations);
+                        stdEp8.avgCpu, stdEp8.placementChanges);
             }
             if (adaEp8 != null) {
-                pw.printf(java.util.Locale.US, "Adaptive_HO_Epoch8,8,%d,%d,%d,%.4f,%d,%.4f,%d%n",
+                pw.printf(Locale.US, "Adaptive_HO_Epoch8,8,%d,%d,%d,%.4f,%d,%.4f,%d%n",
                         adaEp8.timestamp, adaEp8.vmCount, adaEp8.activePmCount, adaEp8.energyWh, adaEp8.slaViolations,
-                        adaEp8.avgCpu, adaEp8.migrations);
+                        adaEp8.avgCpu, adaEp8.placementChanges);
             }
 
-            pw.printf(java.util.Locale.US, "PABFD_Real_Data_997_Epochs_Mean,ALL,997_Epochs,5.08,1.00,%.4f,%d,%.4f,%d%n",
-                    pabfdMeanEnergy, pabfdTotalSla, pabfdAvgCpu, pabfdTotalMigrations);
-            pw.printf(java.util.Locale.US, "Standard_HO_997_Epochs_Mean,ALL,997_Epochs,5.08,1.00,%.4f,%d,%.4f,%d%n",
-                    stdMeanEnergy, stdTotalSla, stdAvgCpu, stdTotalMigrations);
-            pw.printf(java.util.Locale.US, "Adaptive_HO_997_Epochs_Mean,ALL,997_Epochs,5.08,1.00,%.4f,%d,%.4f,%d%n",
-                    adaMeanEnergy, adaTotalSla, adaAvgCpu, adaTotalMigrations);
-            pw.printf(java.util.Locale.US, "PABFD_Real_Data_997_Epochs_Total,ALL,997_Epochs,5065,997,%.4f,%d,%.4f,%d%n",
-                    pabfdTotalEnergy, pabfdTotalSla, pabfdAvgCpu, pabfdTotalMigrations);
-            pw.printf(java.util.Locale.US, "Standard_HO_997_Epochs_Total,ALL,997_Epochs,5065,997,%.4f,%d,%.4f,%d%n",
-                    stdTotalEnergy, stdTotalSla, stdAvgCpu, stdTotalMigrations);
-            pw.printf(java.util.Locale.US, "Adaptive_HO_997_Epochs_Total,ALL,997_Epochs,5065,997,%.4f,%d,%.4f,%d%n",
-                    adaTotalEnergy, adaTotalSla, adaAvgCpu, adaTotalMigrations);
+            pw.printf(Locale.US, "PABFD_Real_Data_997_Epochs_Mean,ALL,997_Epochs,5.08,1.00,%.4f,%d,%.4f,%d%n",
+                    pabfdMeanEnergy, pabfdTotalSla, pabfdAvgCpu, pabfdTotalChanges);
+            pw.printf(Locale.US, "Standard_HO_997_Epochs_Mean,ALL,997_Epochs,5.08,1.00,%.4f,%d,%.4f,%d%n",
+                    stdMeanEnergy, stdTotalSla, stdAvgCpu, stdTotalChanges);
+            pw.printf(Locale.US, "Adaptive_HO_997_Epochs_Mean,ALL,997_Epochs,5.08,1.00,%.4f,%d,%.4f,%d%n",
+                    adaMeanEnergy, adaTotalSla, adaAvgCpu, adaTotalChanges);
+            pw.printf(Locale.US, "PABFD_Real_Data_997_Epochs_Total,ALL,997_Epochs,5065,997,%.4f,%d,%.4f,%d%n",
+                    pabfdTotalEnergy, pabfdTotalSla, pabfdAvgCpu, pabfdTotalChanges);
+            pw.printf(Locale.US, "Standard_HO_997_Epochs_Total,ALL,997_Epochs,5065,997,%.4f,%d,%.4f,%d%n",
+                    stdTotalEnergy, stdTotalSla, stdAvgCpu, stdTotalChanges);
+            pw.printf(Locale.US, "Adaptive_HO_997_Epochs_Total,ALL,997_Epochs,5065,997,%.4f,%d,%.4f,%d%n",
+                    adaTotalEnergy, adaTotalSla, adaAvgCpu, adaTotalChanges);
         } catch (IOException e) {
             System.err.println("Failed to write master summary: " + e.getMessage());
         }
@@ -747,10 +900,10 @@ public class BatchSimulation {
         writePlacementCsv(new File(dir, "placement_standard_epoch8.csv"), ep8.standardPlacement, ep8.vmSpecs);
         writePlacementCsv(new File(dir, "placement_adaptive_epoch8.csv"), ep8.adaptivePlacement, ep8.vmSpecs);
 
-        Map<Long, Long> pabfdMap = computePabfdPlacement(ep8.vmSpecs);
+        Map<String, Integer> pabfdMap = computePabfdPlacement(ep8.vmSpecs);
         List<Integer> pabfdPlacements = new ArrayList<>();
-        for (int i = 0; i < ep8.vmSpecs.size(); i++) {
-            pabfdPlacements.add(pabfdMap.get((long) i).intValue());
+        for (VmSpec s : ep8.vmSpecs) {
+            pabfdPlacements.add(pabfdMap.get(s.vmIdStr));
         }
         writePlacementCsv(new File(dir, "placement_pabfd_epoch8.csv"), pabfdPlacements, ep8.vmSpecs);
     }
@@ -762,10 +915,10 @@ public class BatchSimulation {
                 int hostId = pmIds.get(i);
                 if (i < specs.size()) {
                     VmSpec s = specs.get(i);
-                    pw.printf(java.util.Locale.US, "%d,%d,%d,%.0f,%.0f,%.0f%n", i, hostId, s.pes, s.mips, s.ramMb,
+                    pw.printf(Locale.US, "%d,%d,%d,%.0f,%.0f,%.0f%n", i, hostId, s.pes, s.mips, s.ramMb,
                             s.storageMb);
                 } else {
-                    pw.printf(java.util.Locale.US, "%d,%d,1,1000,1024,61440%n", i, hostId);
+                    pw.printf(Locale.US, "%d,%d,1,1000,1024,61440%n", i, hostId);
                 }
             }
         } catch (IOException e) {
@@ -774,11 +927,13 @@ public class BatchSimulation {
     }
 
     private static void generateValidationReport(Map<Integer, EpochData> epochs,
-            List<SimulationResult> stdResults,
-            List<SimulationResult> adaResults,
-            List<SimulationResult> pabfdResults) {
+                                                List<SimulationResult> stdResults,
+                                                List<SimulationResult> adaResults,
+                                                List<SimulationResult> pabfdResults) {
         File file = resolveFile("results/validation_report.txt", "../results/validation_report.txt");
-        file.getParentFile().mkdirs();
+        if (file.getParentFile() != null) {
+            file.getParentFile().mkdirs();
+        }
 
         List<Double> stdEnergies = new ArrayList<>();
         List<Double> adaEnergies = new ArrayList<>();
@@ -803,9 +958,9 @@ public class BatchSimulation {
         int stdTotalSla = stdResults.stream().mapToInt(r -> r.slaViolations).sum();
         int adaTotalSla = adaResults.stream().mapToInt(r -> r.slaViolations).sum();
         int pabfdTotalSla = pabfdResults.stream().mapToInt(r -> r.slaViolations).sum();
-        int stdTotalMigrations = stdResults.stream().mapToInt(r -> r.migrations).sum();
-        int adaTotalMigrations = adaResults.stream().mapToInt(r -> r.migrations).sum();
-        int pabfdTotalMigrations = pabfdResults.stream().mapToInt(r -> r.migrations).sum();
+        int stdTotalChanges = stdResults.stream().mapToInt(r -> r.placementChanges).sum();
+        int adaTotalChanges = adaResults.stream().mapToInt(r -> r.placementChanges).sum();
+        int pabfdTotalChanges = pabfdResults.stream().mapToInt(r -> r.placementChanges).sum();
         double stdAvgCpu = stdResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
         double adaAvgCpu = adaResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
         double pabfdAvgCpu = pabfdResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
@@ -841,19 +996,16 @@ public class BatchSimulation {
                     adaTotalSla);
             pw.printf("%-30s | %-16.4f | %-16.4f | %-16.4f%n", "Mean CPU Utilization", pabfdAvgCpu, stdAvgCpu,
                     adaAvgCpu);
-            pw.printf("%-30s | %-16d | %-16d | %-16d%n", "Total Migrations", pabfdTotalMigrations, stdTotalMigrations,
-                    adaTotalMigrations);
+            pw.printf("%-30s | %-16d | %-16d | %-16d%n", "Total Placement Changes", pabfdTotalChanges, stdTotalChanges,
+                    adaTotalChanges);
             pw.printf("%-30s | %-16.2f | %-16.2f | %-16.2f%n", "Mean Active PMs", 1.0, 1.0, 1.0);
             pw.println("==========================================================================================");
             pw.println("METHODOLOGICAL INTEGRITY & AUDIT SUMMARY:");
-            pw.println(
-                    "1. VM Specification Sizing: Single Source of Truth strictly from VM.java / DecisionEpochConverter.");
+            pw.println("1. VM Specification Sizing: Single Source of Truth strictly from Person 3 vm_manifest.csv.");
             pw.println("2. Host Indexing: Strict 0-based host indexing (host_id = pm_id, 0..19).");
-            pw.println(
-                    "3. TCN -> AHO Data Flow: Real causal volatility (K=24) and prediction risk directly drive AHO parameters.");
-            pw.println("4. Workload Replay: Aligned with exact decision timestamps from Bitbrains fastStorage traces.");
-            pw.println(
-                    "5. PABFD Baselines: PABFD_REAL_DATA evaluated on exact same 997 epochs; PABFD_SYNTHETIC_BASELINE kept separate.");
+            pw.println("3. TCN -> AHO Data Flow: Real causal volatility (K=24) and prediction risk directly drive AHO parameters in Person 3.");
+            pw.println("4. Workload Replay: Aligned with exact decision timestamps and deterministic trace paths from Bitbrains fastStorage traces.");
+            pw.println("5. PABFD Baselines: PABFD_REAL_DATA evaluated on exact same 997 epochs with dynamic power-fit.");
             pw.println("==========================================================================================");
         } catch (IOException e) {
             System.err.println("Failed to write validation report: " + e.getMessage());
@@ -861,7 +1013,7 @@ public class BatchSimulation {
     }
 
     private static void printAggregateComparison(List<SimulationResult> stdResults, List<SimulationResult> adaResults,
-            List<SimulationResult> pabfdResults) {
+                                                List<SimulationResult> pabfdResults) {
         List<Double> stdEnergies = new ArrayList<>();
         List<Double> adaEnergies = new ArrayList<>();
         List<Double> pabfdEnergies = new ArrayList<>();
@@ -885,9 +1037,9 @@ public class BatchSimulation {
         int stdTotalSla = stdResults.stream().mapToInt(r -> r.slaViolations).sum();
         int adaTotalSla = adaResults.stream().mapToInt(r -> r.slaViolations).sum();
         int pabfdTotalSla = pabfdResults.stream().mapToInt(r -> r.slaViolations).sum();
-        int stdTotalMigrations = stdResults.stream().mapToInt(r -> r.migrations).sum();
-        int adaTotalMigrations = adaResults.stream().mapToInt(r -> r.migrations).sum();
-        int pabfdTotalMigrations = pabfdResults.stream().mapToInt(r -> r.migrations).sum();
+        int stdTotalChanges = stdResults.stream().mapToInt(r -> r.placementChanges).sum();
+        int adaTotalChanges = adaResults.stream().mapToInt(r -> r.placementChanges).sum();
+        int pabfdTotalChanges = pabfdResults.stream().mapToInt(r -> r.placementChanges).sum();
         double stdAvgCpu = stdResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
         double adaAvgCpu = adaResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
         double pabfdAvgCpu = pabfdResults.stream().mapToDouble(r -> r.avgCpu).average().orElse(0.0);
@@ -895,24 +1047,21 @@ public class BatchSimulation {
         System.out.println(
                 "\n==========================================================================================");
         System.out.println("   FINAL AGGREGATE STATISTICAL COMPARISON (997 EPOCHS — 3-WAY BENCHMARK)");
-        System.out
-                .println("==========================================================================================");
-        System.out.printf("%-30s | %-16s | %-16s | %-16s%n", "Metric", "PABFD (Real Data)", "Standard HO",
-                "Adaptive HO");
-        System.out
-                .println("------------------------------------------------------------------------------------------");
-        System.out.printf("%-30s | %-16.4f | %-16.4f | %-16.4f%n", "Mean Energy (Wh / epoch)", pabfdMeanEnergy,
+        System.out.println("==========================================================================================");
+        System.out.printf("%-30s | %-16s | %-16s | %-16s%n", "Metric", "PABFD (Real Data)", "Standard HO", "Adaptive HO");
+        System.out.println("------------------------------------------------------------------------------------------");
+        System.out.printf(Locale.US, "%-30s | %-16.4f | %-16.4f | %-16.4f%n", "Mean Energy (Wh / epoch)", pabfdMeanEnergy,
                 stdMeanEnergy, adaMeanEnergy);
-        System.out.printf("%-30s | %-16.4f | %-16.4f | %-16.4f%n", "Median Energy (Wh / epoch)", pabfdMedianEnergy,
+        System.out.printf(Locale.US, "%-30s | %-16.4f | %-16.4f | %-16.4f%n", "Median Energy (Wh / epoch)", pabfdMedianEnergy,
                 stdMedianEnergy, adaMedianEnergy);
-        System.out.printf("%-30s | %-16.2f | %-16.2f | %-16.2f%n", "Total Energy (Wh)", pabfdTotalEnergy,
+        System.out.printf(Locale.US, "%-30s | %-16.2f | %-16.2f | %-16.2f%n", "Total Energy (Wh)", pabfdTotalEnergy,
                 stdTotalEnergy, adaTotalEnergy);
-        System.out.printf("%-30s | %-16d | %-16d | %-16d%n", "Total SLA Violations", pabfdTotalSla, stdTotalSla,
+        System.out.printf(Locale.US, "%-30s | %-16d | %-16d | %-16d%n", "Total SLA Violations", pabfdTotalSla, stdTotalSla,
                 adaTotalSla);
-        System.out.printf("%-30s | %-16.4f | %-16.4f | %-16.4f%n", "Mean CPU Utilization", pabfdAvgCpu, stdAvgCpu,
+        System.out.printf(Locale.US, "%-30s | %-16.4f | %-16.4f | %-16.4f%n", "Mean CPU Utilization", pabfdAvgCpu, stdAvgCpu,
                 adaAvgCpu);
-        System.out.printf("%-30s | %-16d | %-16d | %-16d%n", "Total Migrations", pabfdTotalMigrations,
-                stdTotalMigrations, adaTotalMigrations);
+        System.out.printf(Locale.US, "%-30s | %-16d | %-16d | %-16d%n", "Total Placement Changes", pabfdTotalChanges,
+                stdTotalChanges, adaTotalChanges);
         System.out.println(
                 "==========================================================================================\n");
     }

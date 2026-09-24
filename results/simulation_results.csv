@@ -1,4 +1,4 @@
-Algorithm,Epoch,Timestamp,VM_Count,Active_PM,Energy_Wh,SLA_Violations,Avg_CPU,Migrations
+Algorithm,Epoch,Timestamp,VM_Count,Active_PM,Energy_Wh,SLA_Violations,Avg_CPU,Placement_Changes
 PABFD_SYNTHETIC_BASELINE,N/A,N/A,24,11,1457.8390,3,0.0539,0
 PABFD_Real_Data_Epoch8,8,1378606200,5,3,1424.9398,0,0.0025,0
 Standard_HO_Epoch8,8,1378606200,5,1,1424.8164,0,0.0025,5
