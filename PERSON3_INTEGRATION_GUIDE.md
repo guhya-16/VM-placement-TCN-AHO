@@ -2,7 +2,7 @@
 **Author / Producer**: Person 1 (ML Workload Forecasting & Intelligence Engine)  
 **Primary Consumer**: Person 3 (Adaptive Hippopotamus Optimization — AHO)  
 **Downstream Consumer**: Person 2 (CloudSim Plus Simulation Engine)  
-**Branch**: [`person1-ml-risk-handoff`](https://github.com/guhya-16/VM-placement-TCN-AHO/tree/person1-ml-risk-handoff)  
+**Branch**: [`ml-tcn-workload-risk`](https://github.com/guhya-16/VM-placement-TCN-AHO/tree/ml-tcn-workload-risk)  
 
 ---
 
@@ -255,7 +255,7 @@ To prevent interoperability mismatches with CloudSim Plus (Person 2):
 ## 14. Step-by-Step Person 3 Integration Workflow
 
 ```text
-Step  1: git checkout person1-ml-risk-handoff
+Step  1: git checkout ml-tcn-workload-risk
 Step  2: Locate results/stage5/risk/risk_state.csv
 Step  3: Verify row count equals 6,915 and columns equal 15
 Step  4: Read unique decision timestamps: sorted(df["decision_timestamp"].unique())
@@ -306,7 +306,7 @@ Before delivering `placement.csv` to Person 2:
 ## 17. Final Handoff Checklist
 
 ### Person 1 Status (Completed & Frozen)
-- [x] Person 1 branch `person1-ml-risk-handoff` created and pushed
+- [x] Person 1 branch `ml-tcn-workload-risk` created and pushed
 - [x] TCN model locked: `M3_FULL_standard_best.pt` (48,300 parameters)
 - [x] Primary input table generated: `risk_state.csv` (6,915 rows, 15 columns)
 - [x] Frozen calibration exported: `risk_calibration.json`
@@ -316,7 +316,7 @@ Before delivering `placement.csv` to Person 2:
 - [x] Short-lived VMs documented and unpadded
 
 ### Person 3 Roadmap (Ready to Begin)
-- [ ] Check out `person1-ml-risk-handoff`
+- [ ] Check out `ml-tcn-workload-risk`
 - [ ] Ingest `risk_state.csv`
 - [ ] Formulate PM host resource constraints
 - [ ] Implement Standard HO baseline
