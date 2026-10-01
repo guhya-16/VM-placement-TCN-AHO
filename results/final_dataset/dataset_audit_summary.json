@@ -1,0 +1,319 @@
+{
+  "total_files_scanned": 1250,
+  "total_readable_files": 1250,
+  "total_failed_files": 0,
+  "total_raw_rows": 11221800,
+  "total_active_rows": 9628248,
+  "total_aligned_5min_steps": 9645218,
+  "total_interpolated_steps": 16989,
+  "total_long_gaps": 2031,
+  "total_valid_windows_whole": 8760448,
+  "total_train_windows": 6244401,
+  "total_validation_windows": 931519,
+  "total_test_windows": 1058762,
+  "total_eligible_unseen_vms": 1222,
+  "total_ineligible_vms": 28,
+  "distribution_of_active_durations": {
+    "unit": "seconds",
+    "min": 0.0,
+    "p25": 2591952.0,
+    "median": 2591952.0,
+    "p75": 2591952.0,
+    "max": 2591952.0
+  },
+  "distribution_of_active_durations_days": {
+    "unit": "days",
+    "min": 0.0,
+    "p25": 30.0,
+    "median": 30.0,
+    "p75": 30.0,
+    "max": 30.0
+  },
+  "distribution_of_valid_windows_per_vm": {
+    "min": 0,
+    "p25": 7287.0,
+    "median": 7740.0,
+    "p75": 8041.0,
+    "max": 8341
+  },
+  "distribution_of_valid_windows_eligible_vms_only": {
+    "min": 10,
+    "median": 7740.0,
+    "max": 8341
+  },
+  "corrupted_unreadable_or_anomalous_files": [
+    {
+      "vm_id": 59,
+      "filename": "59.csv",
+      "active_rows": 25,
+      "aligned_steps": 25,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 25 steps (0.08 days < 25h)"
+    },
+    {
+      "vm_id": 161,
+      "filename": "161.csv",
+      "active_rows": 31,
+      "aligned_steps": 31,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 31 steps (0.10 days < 25h)"
+    },
+    {
+      "vm_id": 162,
+      "filename": "162.csv",
+      "active_rows": 14,
+      "aligned_steps": 14,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 14 steps (0.05 days < 25h)"
+    },
+    {
+      "vm_id": 312,
+      "filename": "312.csv",
+      "active_rows": 3,
+      "aligned_steps": 3,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 3 steps (0.01 days < 25h)"
+    },
+    {
+      "vm_id": 314,
+      "filename": "314.csv",
+      "active_rows": 199,
+      "aligned_steps": 199,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 199 steps (0.69 days < 25h)"
+    },
+    {
+      "vm_id": 316,
+      "filename": "316.csv",
+      "active_rows": 4,
+      "aligned_steps": 4,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 4 steps (0.01 days < 25h)"
+    },
+    {
+      "vm_id": 365,
+      "filename": "365.csv",
+      "active_rows": 0,
+      "aligned_steps": 0,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Zero active rows (no provisioned capacity)"
+    },
+    {
+      "vm_id": 552,
+      "filename": "552.csv",
+      "active_rows": 280,
+      "aligned_steps": 280,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 280 steps (0.97 days < 25h)"
+    },
+    {
+      "vm_id": 576,
+      "filename": "576.csv",
+      "active_rows": 12,
+      "aligned_steps": 12,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 12 steps (0.04 days < 25h)"
+    },
+    {
+      "vm_id": 674,
+      "filename": "674.csv",
+      "active_rows": 8,
+      "aligned_steps": 8,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 8 steps (0.02 days < 25h)"
+    },
+    {
+      "vm_id": 700,
+      "filename": "700.csv",
+      "active_rows": 13,
+      "aligned_steps": 13,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 13 steps (0.04 days < 25h)"
+    },
+    {
+      "vm_id": 753,
+      "filename": "753.csv",
+      "active_rows": 7,
+      "aligned_steps": 7,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 7 steps (0.02 days < 25h)"
+    },
+    {
+      "vm_id": 756,
+      "filename": "756.csv",
+      "active_rows": 11,
+      "aligned_steps": 11,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 11 steps (0.03 days < 25h)"
+    },
+    {
+      "vm_id": 948,
+      "filename": "948.csv",
+      "active_rows": 265,
+      "aligned_steps": 265,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 265 steps (0.92 days < 25h)"
+    },
+    {
+      "vm_id": 1209,
+      "filename": "1209.csv",
+      "active_rows": 117,
+      "aligned_steps": 117,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 117 steps (0.40 days < 25h)"
+    },
+    {
+      "vm_id": 1211,
+      "filename": "1211.csv",
+      "active_rows": 39,
+      "aligned_steps": 39,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 39 steps (0.13 days < 25h)"
+    },
+    {
+      "vm_id": 1239,
+      "filename": "1239.csv",
+      "active_rows": 272,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1240,
+      "filename": "1240.csv",
+      "active_rows": 275,
+      "aligned_steps": 275,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 275 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1241,
+      "filename": "1241.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1242,
+      "filename": "1242.csv",
+      "active_rows": 272,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1243,
+      "filename": "1243.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1244,
+      "filename": "1244.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1245,
+      "filename": "1245.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1246,
+      "filename": "1246.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1247,
+      "filename": "1247.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1248,
+      "filename": "1248.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1249,
+      "filename": "1249.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    },
+    {
+      "vm_id": 1250,
+      "filename": "1250.csv",
+      "active_rows": 274,
+      "aligned_steps": 274,
+      "valid_windows": 0,
+      "eligible": false,
+      "anomalies": "Short active lifetime: 274 steps (0.95 days < 25h)"
+    }
+  ],
+  "ineligible_breakdown": {
+    "total_ineligible": 28,
+    "zero_active_rows": 1,
+    "active_duration_under_25h": 27,
+    "excessive_gaps_under_300_valid": 0,
+    "parse_or_read_errors": 0
+  },
+  "methodology_and_invariants": {
+    "preprocessing_policy": "Policy C (Active Lifetime + 5-min Canonical Alignment + Linear Interpolation limit=2)",
+    "active_condition": "memory_capacity_kb > 0 and cpu_capacity_mhz > 0",
+    "window_size_W": 300,
+    "history_L": 288,
+    "horizon_H": 12,
+    "stride": 1,
+    "split_ratios": {
+      "train": 0.7,
+      "val": 0.15,
+      "test": 0.15
+    },
+    "split_containment_invariant": "train_windows + val_windows + test_windows <= whole_windows (PASSED)"
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "dataset": {
+    "name": "Bitbrains GWA-T-12 fastStorage",
+    "dataset_path": "dataset/fastStorage/2013-8/",
+    "total_vms": 1250,
+    "eligible_vms": 1222,
+    "ineligible_vms": 28,
+    "sampling_interval_seconds": 300,
+    "canonical_grid": "5-minute interval via Policy C (resample('5min').mean())"
+  },
+  "vm_population": {
+    "development_vms": 972,
+    "unseen_vms": 250,
+    "excluded_vms": 28,
+    "total_vms": 1250,
+    "accounting_check": "972 development + 250 unseen + 28 excluded = 1250 total"
+  },
+  "partition": {
+    "random_seed": 42,
+    "primary_stratification": "Type A (Continuous) vs Type B (Decommissioned Suffix)",
+    "secondary_stratification": "Data availability quartiles of valid_24h_to_1h_windows within each type",
+    "selection_method": "Deterministic stratified proportional allocation with seeded RNG choice",
+    "deterministic_rounding_method": "Largest Remainder (Hamilton-Hare) method",
+    "implementation_script": "ml/generate_dataset_manifest.py",
+    "primary_type_allocation": {
+      "eligible_type_a_count": 1104,
+      "eligible_type_b_count": 118,
+      "unseen_type_a_target": 226,
+      "unseen_type_b_target": 24,
+      "development_type_a_count": 878,
+      "development_type_b_count": 94
+    },
+    "strata_definitions": {
+      "Type A": {
+        "q1_bound": 7554.0,
+        "median_bound": 7740.0,
+        "q3_bound": 8041.0
+      },
+      "Type B": {
+        "q1_bound": 2516.0,
+        "median_bound": 3706.5,
+        "q3_bound": 6384.25
+      }
+    },
+    "strata_unseen_counts": {
+      "Type A_Q1_low": 59,
+      "Type A_Q2_med_low": 55,
+      "Type A_Q3_med_high": 58,
+      "Type A_Q4_high": 54,
+      "Type B_Q1_low": 7,
+      "Type B_Q2_med_low": 5,
+      "Type B_Q3_med_high": 6,
+      "Type B_Q4_high": 6
+    }
+  },
+  "temporal_development_split": {
+    "protocol": "Chronological partition within EACH development VM trace",
+    "ratios": {
+      "train": 0.7,
+      "validation": 0.15,
+      "test": 0.15
+    },
+    "method": "partition_vm_chronologically(df_c, 0.70, 0.15)",
+    "split_containment": "Strict partition containment; every window [X, y] resides 100% inside single split",
+    "boundary_handling": "Windows crossing train->val or val->test boundaries are intentionally discarded to prevent leakage",
+    "sequence_break_handling": "Unresolved gaps >2 samples remain sequence breaks (NaN) and are never crossed",
+    "development_window_totals": {
+      "train_windows": 4982642,
+      "validation_windows": 746347,
+      "test_windows": 845881,
+      "total_usable_split_windows": 6574870,
+      "whole_trace_valid_windows": 6991590,
+      "boundary_discarded_windows": 416720,
+      "invariant_check": "6574870 split windows <= 6991590 whole windows (PASSED)"
+    }
+  },
+  "window_configuration": {
+    "history_steps_L": 288,
+    "history_duration_hours": 24.0,
+    "horizon_steps_H": 12,
+    "horizon_duration_hours": 1.0,
+    "total_window_span_W": 300,
+    "stride": 1,
+    "sampling_interval_seconds": 300,
+    "window_extraction_implementation": "ml.temporal_windows.extract_split_safe_windows"
+  },
+  "features_and_scaling": {
+    "feature_mode": "M3",
+    "num_features": 10,
+    "feature_columns": [
+      "cpu_usage_percent",
+      "memory_usage_kb",
+      "disk_read_kbps",
+      "disk_write_kbps",
+      "network_received_kbps",
+      "network_transmitted_kbps",
+      "hour_sin",
+      "hour_cos",
+      "day_sin",
+      "day_cos"
+    ],
+    "scaling_method": "StandardScaler",
+    "scaling_isolation": "Fitted EXCLUSIVELY on unique training observations across the 972 development VMs prior to window expansion; zero validation or test leakage"
+  },
+  "unseen_population_policy": {
+    "purpose": "Independent cross-VM zero-shot generalization evaluation",
+    "status": "Inference only; completely frozen in Stage 14",
+    "isolation_rule": "Strictly excluded from training, validation, checkpoint selection, hyperparameter tuning, scaler fitting, and risk calibration"
+  },
+  "ineligible_vms_policy": {
+    "status": "Excluded from forecasting experiments",
+    "count": 28,
+    "reason_summary": "Zero valid W=300 forecasting windows under Preprocessing Policy C (1 zero-capacity VM + 27 short-lived VMs <25h)"
+  },
+  "reproducibility": {
+    "random_seed": 42,
+    "python_version": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "created_at_utc": "2026-09-19T17:42:50.266207+00:00",
+    "script": "ml/generate_dataset_manifest.py",
+    "artifacts_generated": [
+      "results/final_dataset/vm_split_manifest.csv",
+      "results/final_dataset/final_dataset_manifest.json",
+      "results/final_dataset/window_manifest.csv",
+      "results/final_dataset/vm_split_balance_report.json",
+      "results/final_dataset/vm_split_balance_report.csv"
+    ]
+  }
+}

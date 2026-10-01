@@ -1,0 +1,189 @@
+{
+  "metadata": {
+    "created_at_utc": "2026-09-19T17:42:50.253443+00:00",
+    "random_seed": 42,
+    "total_vms": 1250,
+    "eligible_vms": 1222,
+    "development_vms": 972,
+    "unseen_vms": 250,
+    "excluded_vms": 28
+  },
+  "type_distribution": {
+    "eligible": {
+      "type_a_count": 1104,
+      "type_a_percent": 90.3437,
+      "type_b_count": 118,
+      "type_b_percent": 9.6563
+    },
+    "development": {
+      "type_a_count": 878,
+      "type_a_percent": 90.3292,
+      "type_b_count": 94,
+      "type_b_percent": 9.6708
+    },
+    "unseen": {
+      "type_a_count": 226,
+      "type_a_percent": 90.4,
+      "type_b_count": 24,
+      "type_b_percent": 9.6
+    },
+    "differences_from_eligible": {
+      "dev_minus_eligible_type_a_pct": -0.0145,
+      "dev_minus_eligible_type_b_pct": 0.0145,
+      "unseen_minus_eligible_type_a_pct": 0.0563,
+      "unseen_minus_eligible_type_b_pct": -0.0563
+    }
+  },
+  "data_availability_valid_windows": {
+    "eligible": {
+      "count": 1222,
+      "min": 10.0,
+      "q1": 7287.0,
+      "median": 7740.0,
+      "q3": 8041.0,
+      "max": 8341.0,
+      "mean": 7168.94271685761,
+      "std": 1852.2998657843577
+    },
+    "development": {
+      "count": 972,
+      "min": 10.0,
+      "q1": 7287.0,
+      "median": 7740.0,
+      "q3": 8041.0,
+      "max": 8341.0,
+      "mean": 7192.993827160494,
+      "std": 1830.7399476396388
+    },
+    "unseen": {
+      "count": 250,
+      "min": 246.0,
+      "q1": 7287.0,
+      "median": 7740.0,
+      "q3": 8041.0,
+      "max": 8341.0,
+      "mean": 7075.432,
+      "std": 1934.7889244319178
+    },
+    "differences_from_eligible": {
+      "dev_absolute_diff_mean": 24.0511,
+      "dev_relative_diff_pct_mean": 0.3355,
+      "unseen_absolute_diff_mean": -93.5107,
+      "unseen_relative_diff_pct_mean": -1.3044,
+      "dev_median_diff": 0.0,
+      "unseen_median_diff": 0.0
+    }
+  },
+  "active_duration_days": {
+    "eligible": {
+      "count": 1222,
+      "min": 1.07,
+      "q1": 30.0,
+      "median": 30.0,
+      "q3": 30.0,
+      "max": 30.0,
+      "mean": 27.39351063829787,
+      "std": 6.6808375253726435
+    },
+    "development": {
+      "count": 972,
+      "min": 1.07,
+      "q1": 30.0,
+      "median": 30.0,
+      "q3": 30.0,
+      "max": 30.0,
+      "mean": 27.491625514403292,
+      "std": 6.586882028904549
+    },
+    "unseen": {
+      "count": 250,
+      "min": 1.89,
+      "q1": 30.0,
+      "median": 30.0,
+      "q3": 30.0,
+      "max": 30.0,
+      "mean": 27.012040000000002,
+      "std": 7.034934359621042
+    },
+    "differences_from_eligible": {
+      "dev_absolute_diff_mean": 0.0981,
+      "dev_relative_diff_pct_mean": 0.3582,
+      "unseen_absolute_diff_mean": -0.3815,
+      "unseen_relative_diff_pct_mean": -1.3926,
+      "dev_median_diff": 0.0,
+      "unseen_median_diff": 0.0
+    }
+  },
+  "aligned_5min_steps": {
+    "eligible": {
+      "count": 1222,
+      "min": 309.0,
+      "q1": 8640.0,
+      "median": 8640.0,
+      "q3": 8640.0,
+      "max": 8640.0,
+      "mean": 7889.444353518822,
+      "std": 1923.8850588507507
+    },
+    "development": {
+      "count": 972,
+      "min": 309.0,
+      "q1": 8640.0,
+      "median": 8640.0,
+      "q3": 8640.0,
+      "max": 8640.0,
+      "mean": 7917.699588477366,
+      "std": 1896.822207373427
+    },
+    "unseen": {
+      "count": 250,
+      "min": 545.0,
+      "q1": 8640.0,
+      "median": 8640.0,
+      "q3": 8640.0,
+      "max": 8640.0,
+      "mean": 7779.588,
+      "std": 2025.8777427996697
+    },
+    "differences_from_eligible": {
+      "dev_absolute_diff_mean": 28.2552,
+      "dev_relative_diff_pct_mean": 0.3581,
+      "unseen_absolute_diff_mean": -109.8564,
+      "unseen_relative_diff_pct_mean": -1.3924,
+      "dev_median_diff": 0.0,
+      "unseen_median_diff": 0.0
+    }
+  },
+  "stratum_breakdown": {
+    "strata_counts_eligible": {
+      "Type A_Q1_low": 288,
+      "Type A_Q2_med_low": 266,
+      "Type A_Q3_med_high": 284,
+      "Type A_Q4_high": 266,
+      "Type B_Q1_low": 33,
+      "Type B_Q2_med_low": 26,
+      "Type B_Q3_med_high": 29,
+      "Type B_Q4_high": 30
+    },
+    "strata_counts_unseen": {
+      "Type A_Q1_low": 59,
+      "Type A_Q2_med_low": 55,
+      "Type A_Q3_med_high": 58,
+      "Type A_Q4_high": 54,
+      "Type B_Q1_low": 7,
+      "Type B_Q2_med_low": 5,
+      "Type B_Q3_med_high": 6,
+      "Type B_Q4_high": 6
+    },
+    "strata_counts_development": {
+      "Type A_Q1_low": 229,
+      "Type A_Q2_med_low": 211,
+      "Type A_Q3_med_high": 226,
+      "Type A_Q4_high": 212,
+      "Type B_Q1_low": 26,
+      "Type B_Q2_med_low": 21,
+      "Type B_Q3_med_high": 23,
+      "Type B_Q4_high": 24
+    }
+  }
+}
