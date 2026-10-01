@@ -2,7 +2,7 @@
 **Project Title**: *Predictive Energy-Efficient VM Placement in Cloud Using ML and Adaptive Hippopotamus Optimization*  
 **Role**: Person 1 — Telemetry Preprocessing, Deep Learning Workload Forecasting & Workload Intelligence  
 **Downstream Consumers**: Person 3 (Optimization / AHO) & Person 2 (Simulation / CloudSim Plus)  
-**Status**: **COMPLETE / FROZEN / HANDED OFF** (Branch: `person1-ml-risk-handoff`)
+**Status**: **COMPLETE / FROZEN / HANDED OFF** (Branch: `ml-tcn-workload-risk`)
 
 ---
 
@@ -34,7 +34,7 @@ Phase 9: Unbiased Test Evaluation & 82,980 Multi-Step Forecasts (predictions.csv
     ▼
 Phase 10-11: Causal Volatility (K=24) + Trajectory Spread -> Frozen Risk Proxy (risk_state.csv)
     │
-    ▼  [OFFICIAL HANDOFF BOUNDARY: person1-ml-risk-handoff branch]
+    ▼  [OFFICIAL HANDOFF BOUNDARY: ml-tcn-workload-risk branch]
 Person 3: Adaptive Hippopotamus Optimization (AHO) -> VM-to-PM Placement Engine (placement.csv)
     │
     ▼
@@ -67,7 +67,7 @@ The 3-person research project enforces strict methodological separation of conce
 | Causal Volatility ($K=24$, $ddof=1$) & Spread Modeling | **YES** | No |
 | Frozen Validation Risk Calibration (`risk_calibration.json`) | **YES** | No |
 | Placement Input Table (`risk_state.csv`, 6,915 rows) | **YES** | No |
-| Git Branch Handoff (`person1-ml-risk-handoff`) | **YES** | No |
+| Git Branch Handoff (`ml-tcn-workload-risk`) | **YES** | No |
 | Standard / Adaptive Hippopotamus Optimization (HO/AHO) | No | **YES (Person 3)** |
 | Host Power Curve & Energy Fitness Formulation | No | **YES (Person 3)** |
 | PM Capacity Margins & Colocation Policy | No | **YES (Person 3)** |
@@ -442,7 +442,7 @@ All 17 regression checks in [`results/stage5/risk/risk_verification.json`](file:
 
 ## 17. Git Handoff Audit
 
-* **Handoff Branch**: [`person1-ml-risk-handoff`](https://github.com/guhya-16/VM-placement-TCN-AHO/tree/person1-ml-risk-handoff)
+* **Handoff Branch**: [`ml-tcn-workload-risk`](https://github.com/guhya-16/VM-placement-TCN-AHO/tree/ml-tcn-workload-risk)
 * **Commit Hash**: `3aff9606f3d04252d72b8d0e9796274271f5888c`
 * **Remote Repository**: `https://github.com/guhya-16/VM-placement-TCN-AHO.git` (`origin`)
 * **Push Result**: **SUCCESS** (Remote tracking established)
