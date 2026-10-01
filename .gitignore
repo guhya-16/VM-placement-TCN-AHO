@@ -46,6 +46,11 @@ results/inspection/
 results/preprocessing_evaluation/
 results/stage4/
 
+# Local-Only In-Progress Stage 13/14 Full-Dataset Audit & Manifests
+/ml/audit_full_dataset.py
+/ml/generate_dataset_manifest.py
+/results/final_dataset/
+
 # Temporary Colab Documentation & Diagrams
 STAGE5_COLAB_GPU_EXECUTION_GUIDE.md
 Stage5_implementation.md
