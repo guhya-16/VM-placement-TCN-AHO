@@ -24,6 +24,7 @@ dataset/
 *.tar.gz
 *.rar
 colab_stage5_gpu/
+colab_gen_lstm/
 
 # Logs and Scratch Dirs
 *.log

@@ -1,0 +1,28 @@
+{
+  "model_name": "gen_lstm",
+  "model_architecture": "LSTMForecaster (2 layers, hidden=64, 53,516 params)",
+  "feature_mode": "M3_FULL",
+  "feature_strategy": "standard",
+  "target_strategy": "native",
+  "lookback_steps": 288,
+  "forecast_horizon": 12,
+  "sampling_seconds": 300,
+  "volatility_window": 24,
+  "risk_volatility_weight": 0.6,
+  "risk_spread_weight": 0.4,
+  "volatility_p95": 4.675352,
+  "spread_p95": 0.512368,
+  "risk_low_threshold": 0.08311,
+  "risk_high_threshold": 0.189232,
+  "validation_window_count": 6557,
+  "calibration_timestamp": "2026-10-04T17:12:17.086144+00:00",
+  "summary_statistics_validation": {
+    "volatility_mean": 1.997532,
+    "volatility_p95": 4.675352,
+    "spread_mean": 0.460321,
+    "spread_p95": 0.512368,
+    "risk_score_mean": 0.22525,
+    "tau_low_p33": 0.08311,
+    "tau_high_p67": 0.189232
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "experiment_id": "gen_lstm",
+  "checkpoint_path": "/content/results/gen_lstm/checkpoints/gen_lstm_best.pt",
+  "model_architecture": {
+    "model_class": "LSTMForecaster",
+    "parameters": 53516,
+    "input_features": 10,
+    "hidden_size": 64,
+    "num_layers": 2,
+    "dropout": 0.1,
+    "forecast_horizon": 12
+  },
+  "evaluation_timestamp": "2026-10-04T17:12:16.357768+00:00",
+  "test_window_count": 6915,
+  "test_total_forecast_points": 82980,
+  "test_metrics_overall": {
+    "MAE": 1.9457,
+    "RMSE": 10.0053,
+    "R2": 0.1429,
+    "sMAPE": 45.5705,
+    "thresholded_MAPE": 18.6767,
+    "eligible_observations": 60659,
+    "eligible_fraction": 0.731
+  },
+  "best_epoch": 8,
+  "best_validation_loss": 72.99124294136892,
+  "total_training_time_sec": 44.03
+}
