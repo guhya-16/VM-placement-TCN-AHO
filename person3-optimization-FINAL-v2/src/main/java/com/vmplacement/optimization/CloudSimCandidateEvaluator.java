@@ -86,7 +86,7 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
                 input.candidateId(),
                 input.timestamp(),
                 "AHO",
-                0.05,
+                input.rows().get(0).slaThreshold(),
                 vmPlacements,
                 pmSpecs
         );
