@@ -389,24 +389,37 @@ def fit_scalers_on_unique_train(
     feature_cols: List[str],
     feature_strategy: str = "native",
     target_strategy: str = "native",
+    expected_steps: Optional[int] = None,
 ) -> Tuple[BaseScaler, TargetScaler]:
     """
     Fits both feature and target scalers strictly on UNIQUE training observations
     prior to sliding window expansion.
 
     Guarantees:
-    - 44,343 unique training observations sampled exactly once.
+    - 44,343 unique training observations sampled exactly once for 14-VM population.
     - Zero over-weighting of interior overlapping sliding window steps.
     - Zero validation or test data is ever seen.
     """
     train_dfs = [splits["train"] for splits in vm_partitions.values()]
     pooled_train = pd.concat(train_dfs, ignore_index=True)
 
-    expected_steps = 44343
     actual_steps = len(pooled_train)
-    assert actual_steps == expected_steps, (
-        f"Train observation count mismatch: expected {expected_steps}, got {actual_steps}"
-    )
+    num_vms = len(vm_partitions)
+
+    if expected_steps is not None:
+        assert actual_steps == expected_steps, (
+            f"Train observation count mismatch: expected {expected_steps}, got {actual_steps}"
+        )
+    elif num_vms == 14:
+        assert actual_steps == 44343, (
+            f"Train observation count mismatch for 14 VMs: expected 44343, got {actual_steps}"
+        )
+    elif num_vms == 972:
+        assert actual_steps == 5387139, (
+            f"Train observation count mismatch for 972 VMs: expected 5387139, got {actual_steps}"
+        )
+    else:
+        assert actual_steps > 0, f"Train observation count must be positive, got {actual_steps}"
 
     X_train_unique = pooled_train[feature_cols].to_numpy(dtype=np.float32)
     y_train_unique = pooled_train["cpu_usage_percent"].to_numpy(dtype=np.float32)
@@ -707,6 +720,7 @@ def create_stage5_datasets(
     vm_partitions: Optional[Dict[str, Dict[str, pd.DataFrame]]] = None,
     L: int = DEFAULT_L,
     H: int = DEFAULT_H,
+    expected_steps: Optional[int] = None,
 ) -> Tuple[Dict[str, BitbrainsWindowDataset], BaseScaler, TargetScaler]:
     """
     Constructs leakage-safe Train, Val, and Test BitbrainsWindowDataset instances.
@@ -730,6 +744,7 @@ def create_stage5_datasets(
             feature_cols=feature_cols,
             feature_strategy=feature_strategy,
             target_strategy=target_strategy,
+            expected_steps=expected_steps,
         )
     else:
         # Recreate partitions from traces if not passed
@@ -742,6 +757,7 @@ def create_stage5_datasets(
             feature_cols=feature_cols,
             feature_strategy=feature_strategy,
             target_strategy=target_strategy,
+            expected_steps=expected_steps,
         )
 
     # Create dataset instances per split

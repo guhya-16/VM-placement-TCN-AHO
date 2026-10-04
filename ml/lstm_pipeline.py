@@ -293,13 +293,14 @@ def run_gen_lstm_pipeline(
         expected_steps=44343,
     )
 
-    datasets = create_stage5_datasets(
+    datasets, _, _ = create_stage5_datasets(
         vm_traces=vm_traces,
         index_table=index_table,
         feature_mode="M3_FULL",
         feature_strategy="standard",
         target_strategy="native",
         vm_partitions=vm_partitions,
+        expected_steps=44343,
     )
     loaders = create_stage5_dataloaders(datasets, batch_size=batch_size, num_workers=0)
 
