@@ -20,11 +20,15 @@ public class PlacementRequest {
     private final double slaThreshold;
     private final List<VmPlacementSpec> vmPlacements;
     private final List<PmSpec> pmSpecs;
+    private final HostPowerStateModel powerStateModel;
+    private final double standbyHostPowerWatts;
 
     public PlacementRequest(int epoch, int iteration, String candidateId, long timestamp,
                             String method, double slaThreshold,
                             List<VmPlacementSpec> vmPlacements,
-                            List<PmSpec> pmSpecs) {
+                            List<PmSpec> pmSpecs,
+                            HostPowerStateModel powerStateModel,
+                            double standbyHostPowerWatts) {
         this.epoch = epoch;
         this.iteration = iteration;
         this.candidateId = candidateId != null ? candidateId : "CANDIDATE_0";
@@ -33,6 +37,16 @@ public class PlacementRequest {
         this.slaThreshold = slaThreshold > 0.0 ? slaThreshold : 0.05;
         this.vmPlacements = vmPlacements != null ? new ArrayList<>(vmPlacements) : new ArrayList<>();
         this.pmSpecs = pmSpecs != null ? new ArrayList<>(pmSpecs) : new ArrayList<>();
+        this.powerStateModel = powerStateModel != null ? powerStateModel : HostPowerStateModel.ACTIVE_SERVERS_ONLY;
+        this.standbyHostPowerWatts = Math.max(0.0, standbyHostPowerWatts);
+    }
+
+    public PlacementRequest(int epoch, int iteration, String candidateId, long timestamp,
+                            String method, double slaThreshold,
+                            List<VmPlacementSpec> vmPlacements,
+                            List<PmSpec> pmSpecs) {
+        this(epoch, iteration, candidateId, timestamp, method, slaThreshold, vmPlacements, pmSpecs,
+             HostPowerStateModel.ACTIVE_SERVERS_ONLY, 0.0);
     }
 
     /**
@@ -92,6 +106,14 @@ public class PlacementRequest {
 
     public double getSlaThreshold() {
         return slaThreshold;
+    }
+
+    public HostPowerStateModel getPowerStateModel() {
+        return powerStateModel;
+    }
+
+    public double getStandbyHostPowerWatts() {
+        return standbyHostPowerWatts;
     }
 
     public List<VmPlacementSpec> getVmPlacements() {

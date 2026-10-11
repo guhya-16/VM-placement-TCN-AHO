@@ -115,11 +115,14 @@ public class PlacementEvaluator {
             usedRam[pmId] += vm.getRamMb();
             usedStorage[pmId] += vm.getStorageMb();
 
-            double cpuDemandFraction = vm.getCurrentCpuUtilization() > 1.0
-                    ? vm.getCurrentCpuUtilization() / 100.0
-                    : vm.getCurrentCpuUtilization();
-            if (cpuDemandFraction <= 0.0) {
-                cpuDemandFraction = 1.0; // Default to full provisioned capacity if not specified
+            double utilPercent = vm.getCurrentCpuUtilization();
+            double cpuDemandFraction;
+            try {
+                cpuDemandFraction = toDemandFraction(utilPercent);
+            } catch (IllegalArgumentException e) {
+                return PlacementEvaluationResult.infeasible(
+                        request.getEpoch(), request.getIteration(), request.getCandidateId(),
+                        "Invalid CPU utilization for VM " + vm.getVmId() + ": " + e.getMessage());
             }
             usedMips[pmId] += vm.getMips() * cpuDemandFraction;
         }
@@ -215,10 +218,25 @@ public class PlacementEvaluator {
         double totalEnergyWh = 0.0;
         final double observationWindowHours = OBSERVATION_WINDOW_SECONDS / 3600.0; // Strictly 1.0 hour
         final Map<Integer, Double> hostCpuMap = new LinkedHashMap<>();
+        final HostPowerStateModel powerStateModel = request.getPowerStateModel();
 
         for (Host host : datacenter.getHostList()) {
+            boolean hasVms = !host.getVmCreatedList().isEmpty();
             double meanUtil = host.getCpuUtilizationStats().getMean();
-            double meanPowerWatts = host.getPowerModel().getPower(meanUtil);
+            double meanPowerWatts;
+
+            if (hasVms) {
+                // Active host with assigned VMs: P(u) = P_static + (P_max - P_static) * u
+                meanPowerWatts = host.getPowerModel().getPower(meanUtil);
+            } else {
+                // Inactive host with 0 assigned VMs
+                if (powerStateModel == HostPowerStateModel.FACILITY_ALWAYS_ON) {
+                    meanPowerWatts = host.getPowerModel().getPower(0.0); // Baseline idle static power
+                } else {
+                    meanPowerWatts = request.getStandbyHostPowerWatts(); // Powered-off / deep sleep standby power (default: 0.0 W)
+                }
+            }
+
             double hostEnergyWh = meanPowerWatts * observationWindowHours;
             totalEnergyWh += hostEnergyWh;
             hostCpuMap.put((int) host.getId(), meanUtil);
@@ -304,6 +322,28 @@ public class PlacementEvaluator {
             hostList.add(host);
         }
         return hostList;
+    }
+
+    /**
+     * Converts a percentage CPU utilization (in [0.0, 100.0]%) to a physical demand fraction in [0.0, 1.0].
+     *
+     * Explicit error-handling policy:
+     * - CPU utilization must be a finite double (NaN, +Infinity, and -Infinity are strictly rejected).
+     * - CPU utilization must be non-negative: cpuPercent >= 0.0 (0.0 represents a legitimate idle VM with zero demand).
+     * - CPU utilization must not exceed 100.0%: cpuPercent <= 100.0.
+     * - Any invalid value throws an IllegalArgumentException rather than silently falling back to 1.0 (full demand).
+     *
+     * @param cpuPercent CPU utilization in percentage [0.0, 100.0]
+     * @return CPU demand fraction in [0.0, 1.0]
+     * @throws IllegalArgumentException if cpuPercent is NaN, infinite, negative, or > 100.0
+     */
+    public static double toDemandFraction(double cpuPercent) {
+        if (!Double.isFinite(cpuPercent) || cpuPercent < 0.0 || cpuPercent > 100.0) {
+            throw new IllegalArgumentException(String.format(java.util.Locale.US,
+                    "Invalid CPU percentage %s: must be finite and within [0.0, 100.0]%%",
+                    Double.toString(cpuPercent)));
+        }
+        return cpuPercent / 100.0;
     }
 
     private static long parseVmNumericId(String vmIdStr, int fallbackIndex) {
