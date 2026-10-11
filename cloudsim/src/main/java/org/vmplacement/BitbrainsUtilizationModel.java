@@ -64,9 +64,10 @@ public class BitbrainsUtilizationModel extends UtilizationModelAbstract implemen
 
                 long timestampSeconds = Long.parseLong(parts[0].replace("\"", "").trim());
                 double cpuUsagePercent = Double.parseDouble(parts[4].replace("\"", "").trim());
+                double fraction = clampFraction(cpuUsagePercent / 100.0);
 
                 allTimestamps.add(timestampSeconds);
-                allFractions.add(cpuUsagePercent / 100.0);
+                allFractions.add(fraction);
             }
 
             if (allTimestamps.isEmpty()) {
@@ -118,8 +119,22 @@ public class BitbrainsUtilizationModel extends UtilizationModelAbstract implemen
         }
     }
 
+    /**
+     * Clamps a raw utilization fraction to the valid physical domain [0.0, 1.0].
+     * Preserves 0.0 for legitimate idle demand while rejecting non-finite values (falling back to 0.0).
+     */
+    public static double clampFraction(double fraction) {
+        if (!Double.isFinite(fraction)) {
+            return 0.0;
+        }
+        return Math.max(0.0, Math.min(1.0, fraction));
+    }
+
     @Override
     protected double getUtilizationInternal(double simulationTimeSeconds) {
+        if (cpuUtilizationFraction.isEmpty()) {
+            return 0.0;
+        }
         // Find the last recorded sample at or before this simulation time.
         // Since samples are ~5 minutes apart, this holds each value constant
         // until the next real sample point - a simple, defensible approach.
@@ -132,7 +147,7 @@ public class BitbrainsUtilizationModel extends UtilizationModelAbstract implemen
             }
         }
         double fraction = cpuUtilizationFraction.get(index);
-        return Math.max(0.01, Math.min(1.0, fraction));
+        return clampFraction(fraction);
     }
 
     /**
@@ -144,7 +159,7 @@ public class BitbrainsUtilizationModel extends UtilizationModelAbstract implemen
         int count = 0;
         for (int i = 0; i < timeOffsetsSeconds.size(); i++) {
             if (timeOffsetsSeconds.get(i) <= windowSeconds) {
-                sum += cpuUtilizationFraction.get(i);
+                sum += clampFraction(cpuUtilizationFraction.get(i));
                 count++;
             }
         }

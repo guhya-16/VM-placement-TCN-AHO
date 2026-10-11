@@ -1,6 +1,7 @@
 package com.vmplacement.optimization;
 
 import org.vmplacement.DatacenterState;
+import org.vmplacement.HostPowerStateModel;
 import org.vmplacement.PlacementEvaluationResult;
 import org.vmplacement.PlacementEvaluator;
 import org.vmplacement.PlacementRequest;
@@ -23,14 +24,24 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
     private final DatacenterState datacenterState;
     private final List<PmSpec> pmSpecs;
     private final File candidateResultsFile;
+    private final HostPowerStateModel powerStateModel;
+    private final double standbyPowerWatts;
 
     public CloudSimCandidateEvaluator() {
-        this(new DatacenterState(), new File("../results/candidate_evaluation_results.csv"));
+        this(new DatacenterState(), new File("../results/candidate_evaluation_results.csv"),
+             HostPowerStateModel.ACTIVE_SERVERS_ONLY, 0.0);
     }
 
     public CloudSimCandidateEvaluator(DatacenterState datacenterState, File candidateResultsFile) {
+        this(datacenterState, candidateResultsFile, HostPowerStateModel.ACTIVE_SERVERS_ONLY, 0.0);
+    }
+
+    public CloudSimCandidateEvaluator(DatacenterState datacenterState, File candidateResultsFile,
+                                     HostPowerStateModel powerStateModel, double standbyPowerWatts) {
         this.datacenterState = datacenterState;
         this.candidateResultsFile = candidateResultsFile;
+        this.powerStateModel = powerStateModel != null ? powerStateModel : HostPowerStateModel.ACTIVE_SERVERS_ONLY;
+        this.standbyPowerWatts = Math.max(0.0, standbyPowerWatts);
         this.pmSpecs = new ArrayList<>();
         // 10 x PM1 (Hosts 0-9)
         for (int i = 0; i < 10; i++) {
@@ -80,15 +91,21 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
             ));
         }
 
+        double slaThreshold = (input.rows() != null && !input.rows().isEmpty())
+                ? input.rows().get(0).slaThreshold()
+                : 0.05;
+
         PlacementRequest request = new PlacementRequest(
                 input.epoch(),
                 input.iteration(),
                 input.candidateId(),
                 input.timestamp(),
                 "AHO",
-                0.05,
+                slaThreshold,
                 vmPlacements,
-                pmSpecs
+                pmSpecs,
+                powerStateModel,
+                standbyPowerWatts
         );
 
         PlacementEvaluationResult result = PlacementEvaluator.evaluate(request, datacenterState);
@@ -132,7 +149,7 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
     public void commitFinalPlacement(int epoch, long timestamp, Map<String, Integer> finalPlacement) {
         datacenterState.commitFinalPlacement(epoch, timestamp, finalPlacement);
         if (finalPlacement != null) {
-            File timelineFile = new File("../results/final_placement_timeline.csv");
+            File timelineFile = resolveResultsFile("final_placement_timeline.csv");
             boolean isNew = !timelineFile.exists() || timelineFile.length() == 0;
             try (FileWriter fw = new FileWriter(timelineFile, true)) {
                 if (isNew) {
@@ -145,7 +162,7 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
                 System.err.println("Failed to write timeline: " + e.getMessage());
             }
 
-            File finalEpochFile = new File("../results/final_epoch_placement.csv");
+            File finalEpochFile = resolveResultsFile("final_epoch_placement.csv");
             try (FileWriter fw = new FileWriter(finalEpochFile, false)) {
                 fw.write("epoch,timestamp,vm_id,pm_id\n");
                 for (Map.Entry<String, Integer> e : finalPlacement.entrySet()) {
@@ -177,5 +194,15 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private static File resolveResultsFile(String filename) {
+        File direct = new File(filename);
+        if (direct.exists()) return direct;
+        File inParent = new File("../results", filename);
+        if (new File("../results").isDirectory()) return inParent;
+        File inLocal = new File("results", filename);
+        if (new File("results").isDirectory()) return inLocal;
+        return inParent;
     }
 }

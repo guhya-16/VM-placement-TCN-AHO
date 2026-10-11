@@ -38,15 +38,27 @@ public final class VM {
         return value.trim();
     }
 
-    private static double cpuPercent(double value, double scale) {
-        // scale < 0 means per-value auto detection, matching the Person 1 handoff
-        // convention used by the original branch: values in [0,1] are fractions;
-        // larger values are already percentages.
-        double v = scale < 0 ? (value >= 0.0 && value <= 1.0 ? value * 100.0 : value) : value * scale;
-        if (!Double.isFinite(v) || v < 0 || v > 100.0 + 1e-9) {
+    public static double cpuPercent(double value, double scale) {
+        // scale == 1.0: direct percentage mode (declared format in risk_state.csv)
+        // scale == 100.0: fraction mode (inputs in [0,1] scaled to percentage)
+        // scale < 0: auto mode defaults to direct percentage (1.0), avoiding arbitrary 1.0 threshold bugs
+        double effectiveScale = (scale < 0) ? 1.0 : scale;
+        double v = value * effectiveScale;
+        if (!Double.isFinite(v) || v < 0.0 || v > 100.0 + 1e-9) {
             throw new IllegalArgumentException("CPU value outside [0,100] after configured scaling: " + v);
         }
         return Math.max(0.0, Math.min(100.0, v));
+    }
+
+    /**
+     * Converts a validated CPU percentage ([0.0%, 100.0%]) to a physical utilization fraction ([0.0, 1.0]).
+     * e.g., 0.75% -> 0.0075, 1.0% -> 0.010, 75.0% -> 0.75, 100.0% -> 1.0.
+     */
+    public static double toUtilizationFraction(double cpuPercent) {
+        if (!Double.isFinite(cpuPercent) || cpuPercent < 0.0 || cpuPercent > 100.0 + 1e-9) {
+            throw new IllegalArgumentException("CPU percent outside [0,100]: " + cpuPercent);
+        }
+        return Math.max(0.0, Math.min(1.0, cpuPercent / 100.0));
     }
 
     public String getId() { return id; }
