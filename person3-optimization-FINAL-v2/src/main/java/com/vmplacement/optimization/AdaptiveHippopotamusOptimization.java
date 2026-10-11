@@ -47,12 +47,22 @@ public final class AdaptiveHippopotamusOptimization {
         }
         if(population.size()<populationSize)throw new IllegalStateException("Could not build the requested feasible population: requested="+populationSize+", built="+population.size()+", timestamp="+epoch.getTimestamp());
     }
-    private boolean contains(PlacementSolution s){for(Hippopotamus h:population)if(h.getSolution().equals(s))return true;return false;}
     private void evaluatePopulation(List<Hippopotamus> hs,int iteration){
+        if(verbose){
+            System.out.printf("Epoch %d%n", currentEpochIndex);
+            System.out.printf("Iteration %d%n", iteration);
+        }
         List<CloudSimEvaluationResult> results=new ArrayList<>(hs.size());
         for(int i=0;i<hs.size();i++) results.add(bridge.evaluate(currentEpochIndex,iteration,i+1,epoch,hs.get(i).getSolution()));
         List<Double> scores=fitnessFunction.score(results);
-        for(int i=0;i<hs.size();i++){hs.get(i).setEvaluation(results.get(i));hs.get(i).setFitness(scores.get(i));}
+        for(int i=0;i<hs.size();i++){
+            hs.get(i).setEvaluation(results.get(i));
+            hs.get(i).setFitness(scores.get(i));
+            if(verbose){
+                System.out.printf("→ Fitness calculation: %.8f (current best: %.8f)%n%n",
+                        scores.get(i), (best != null ? best.getFitness() : scores.get(i)));
+            }
+        }
     }
     private void updateBest(int iteration){for(Hippopotamus h:population)if(best==null||h.getFitness()<best.getFitness()){best=h;bestIteration=iteration;}}
     private PlacementSolution generateCandidate(PlacementSolution current){

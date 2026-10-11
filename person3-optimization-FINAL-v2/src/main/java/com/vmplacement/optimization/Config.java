@@ -17,10 +17,18 @@ public final class Config {
     }
 
     public String get(String key) { return required(key); }
+    public String getOrDefault(String key, String defaultValue) {
+        String v = p.getProperty(key);
+        return (v == null || v.isBlank()) ? defaultValue : v.trim();
+    }
     public boolean bool(String key) { return Boolean.parseBoolean(required(key)); }
     public int integer(String key) { return Integer.parseInt(required(key)); }
     public long longValue(String key) { return Long.parseLong(required(key)); }
     public double decimal(String key) { return Double.parseDouble(required(key)); }
+    public double decimalOrDefault(String key, double defaultValue) {
+        String v = p.getProperty(key);
+        return (v == null || v.isBlank()) ? defaultValue : Double.parseDouble(v.trim());
+    }
     public Path path(String key) { return Path.of(required(key)); }
 
     private String required(String key) {

@@ -44,10 +44,21 @@ public final class Main {
          * with the real CloudSim-backed implementations.
          */
         InfrastructureProvider infrastructure =
-                new UnconfiguredInfrastructureProvider();
+                new CloudSimInfrastructureProvider();
 
-        CloudSimEvaluator evaluator =
-                new UnconfiguredCloudSimEvaluator();
+        String powerModelStr = cfg.getOrDefault("energy.power_state_model", "ACTIVE_SERVERS_ONLY");
+        org.vmplacement.HostPowerStateModel powerStateModel = powerModelStr.equalsIgnoreCase("FACILITY_ALWAYS_ON")
+                ? org.vmplacement.HostPowerStateModel.FACILITY_ALWAYS_ON
+                : org.vmplacement.HostPowerStateModel.ACTIVE_SERVERS_ONLY;
+        double standbyWatts = cfg.decimalOrDefault("energy.standby_power_watts", 0.0);
+
+        CloudSimCandidateEvaluator evaluator =
+                new CloudSimCandidateEvaluator(
+                        new org.vmplacement.DatacenterState(),
+                        resolveResultsFile(cfg.getOrDefault("output.candidate_results", "candidate_evaluation_results.csv")),
+                        powerStateModel,
+                        standbyWatts
+                );
 
         FitnessFunction fitness = new FitnessFunction(
                 cfg.decimal("fitness.energy_weight"),
@@ -72,6 +83,26 @@ public final class Main {
 
         PlacementState previous = PlacementState.empty();
 
+        int maxEpochs = (args.length > 1) ? Integer.parseInt(args[1]) : epochs.size();
+        int maxIterations = (args.length > 2) ? Integer.parseInt(args[2]) : cfg.integer("aho.max_iterations");
+        int populationSize = (args.length > 3) ? Integer.parseInt(args[3]) : cfg.integer("aho.population_size");
+
+        String runId = System.getProperty("run.id");
+        if (runId == null || runId.isBlank()) {
+            runId = System.getenv("RUN_ID");
+        }
+        if (runId == null || runId.isBlank()) {
+            runId = cfg.getOrDefault("run.id", "");
+        }
+        if (args.length > 4 && args[4] != null && !args[4].isBlank()) {
+            runId = args[4];
+        }
+        if (runId == null || runId.isBlank()) {
+            runId = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date());
+        }
+
+        java.io.File epochMetricsFile = resolveResultsFile(cfg.getOrDefault("output.epoch_metrics", "epoch_metrics.csv"));
+
         try (
                 CandidateHandoffWriter candidateIn =
                         new CandidateHandoffWriter(
@@ -86,6 +117,12 @@ public final class Main {
                 FinalPlacementWriter finalWriter =
                         new FinalPlacementWriter(
                                 cfg.path("output.final_placement")
+                        );
+
+                EpochMetricsWriter epochMetricsWriter =
+                        new EpochMetricsWriter(
+                                epochMetricsFile,
+                                runId
                         )
         ) {
 
@@ -101,7 +138,7 @@ public final class Main {
 
             for (
                     int epochIndex = 0;
-                    epochIndex < epochs.size();
+                    epochIndex < Math.min(epochs.size(), maxEpochs);
                     epochIndex++
             ) {
 
@@ -129,8 +166,8 @@ public final class Main {
                 AdaptiveHippopotamusOptimization aho =
                         new AdaptiveHippopotamusOptimization(
                                 state,
-                                cfg.integer("aho.population_size"),
-                                cfg.integer("aho.max_iterations"),
+                                populationSize,
+                                maxIterations,
                                 seedBase + epochIndex,
                                 cfg.bool("aho.verbose"),
                                 bridge,
@@ -151,7 +188,7 @@ public final class Main {
                 )) {
                     throw new IllegalStateException(
                             "AHO returned an infeasible committed placement at timestamp "
-                                    + epoch.timestamp()
+                                     + epoch.timestamp()
                     );
                 }
 
@@ -161,6 +198,23 @@ public final class Main {
                         best,
                         aho.getBestIteration()
                 );
+
+                java.util.Map<String, Integer> finalPlacementMap = new java.util.LinkedHashMap<>();
+                for (int i = 0; i < vms.size(); i++) {
+                    finalPlacementMap.put(vms.get(i).getId(), best.getPmIndex(i));
+                }
+                evaluator.commitFinalPlacement(epochIndex + 1, epoch.timestamp(), finalPlacementMap);
+
+                CloudSimEvaluationResult bestEval = aho.getBestEvaluation();
+                if (bestEval != null) {
+                    epochMetricsWriter.write(
+                            epochIndex + 1,
+                            epoch.timestamp(),
+                            bestEval,
+                            aho.getBestFitness(),
+                            true
+                    );
+                }
 
                 previous =
                         PlacementState.fromSolution(
@@ -203,5 +257,27 @@ public final class Main {
                     "cpu.scale must be auto, fraction, or percent"
             );
         };
+    }
+
+    private static java.io.File resolveResultsFile(String relativePath) {
+        if (relativePath == null || relativePath.isBlank()) {
+            relativePath = "epoch_metrics.csv";
+        }
+        java.io.File direct = new java.io.File(relativePath);
+        if (direct.isAbsolute()) {
+            return direct;
+        }
+        String cleanName = relativePath.startsWith("results/") || relativePath.startsWith("results\\")
+                ? relativePath.substring(8)
+                : relativePath;
+        java.io.File inResults = new java.io.File("results", cleanName);
+        if (new java.io.File("results").isDirectory()) {
+            return inResults;
+        }
+        java.io.File inParentResults = new java.io.File("../results", cleanName);
+        if (new java.io.File("../results").isDirectory()) {
+            return inParentResults;
+        }
+        return inResults;
     }
 }

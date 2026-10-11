@@ -18,6 +18,8 @@ public final class CandidateEvaluationBridge {
     public CloudSimEvaluationResult evaluate(int epochIndex, int iteration, int candidateNumber,
                                              EpochState state, PlacementSolution candidate) {
         String candidateId = "E"+epochIndex+"-I"+iteration+"-C"+candidateNumber;
+        System.out.printf("Candidate %s%n", candidateId);
+        System.out.printf("→ Person 3 → CloudSim: %s%n", candidate);
         List<CandidateEvaluationInput.Row> rows = new ArrayList<>();
         int[] mapping=candidate.getVmToPm();
         for(int i=0;i<state.getActiveVms().size();i++){
@@ -34,6 +36,8 @@ public final class CandidateEvaluationBridge {
         if(output==null) throw new IllegalStateException("CloudSim evaluator returned null for "+candidateId);
         validateIdentity(input,output);
         outputWriter.write(output);
+        System.out.printf("← CloudSim result: feasible=%b, energy=%.4f Wh, SLA=%d, activePMs=%d, migrations=%d%n",
+                output.feasible(), output.energyWh(), output.slaViolations(), output.activePms(), output.placementChangesFromPreviousState());
         return new CloudSimEvaluationResult(output);
     }
     private static void validateIdentity(CandidateEvaluationInput in, CandidateEvaluationOutput out){
