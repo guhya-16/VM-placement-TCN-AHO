@@ -23,6 +23,27 @@ public final class Main {
         );
 
         Config cfg = Config.load(configPath);
+System.out.println("\n===== VM Placement Algorithm Selection =====");
+System.out.println("1. WA_AHO - Adaptive Hippopotamus Optimization");
+System.out.println("2. STANDARD_HO - Standard Hippopotamus Optimization");
+System.out.println("3. FIRST_FIT - First Fit Allocation");
+System.out.print("Enter your choice (1-3): ");
+
+java.util.Scanner scanner = new java.util.Scanner(System.in);
+String choice = scanner.nextLine().trim();
+
+String algorithm = switch (choice) {
+    case "1", "WA_AHO" -> "WA_AHO";
+    case "2", "STANDARD_HO" -> "STANDARD_HO";
+    case "3", "FIRST_FIT" -> "FIRST_FIT";
+    default -> throw new IllegalArgumentException(
+        "Invalid choice: " + choice + ". Please enter 1, 2, or 3."
+    );
+};
+
+System.out.println("Selected algorithm: " + algorithm);
+System.out.println("Starting VM placement workflow...");
+
 
         List<DecisionEpoch> epochs =
                 CSVWorkloadReader.readDecisionEpochs(
@@ -59,6 +80,7 @@ public final class Main {
                         powerStateModel,
                         standbyWatts
                 );
+        evaluator.setAlgorithmName(algorithm);
 
         FitnessFunction fitness = new FitnessFunction(
                 cfg.decimal("fitness.energy_weight"),
@@ -163,23 +185,72 @@ public final class Main {
                                 previous
                         );
 
-                AdaptiveHippopotamusOptimization aho =
-                        new AdaptiveHippopotamusOptimization(
-                                state,
-                                populationSize,
-                                maxIterations,
-                                seedBase + epochIndex,
-                                cfg.bool("aho.verbose"),
-                                bridge,
-                                fitness,
-                                signal,
-                                cfg.decimal("adaptive.mutation_base"),
-                                cfg.decimal("adaptive.mutation_range")
-                        );
+                PlacementSolution best;
+int bestIteration;
+double bestFitness;
+CloudSimEvaluationResult bestEval;
 
-                aho.setEpochIndex(epochIndex + 1);
+switch (algorithm) {
+    case "WA_AHO" -> {
+        AdaptiveHippopotamusOptimization optimizer =
+                new AdaptiveHippopotamusOptimization(
+                        state,
+                        populationSize,
+                        maxIterations,
+                        seedBase + epochIndex,
+                        cfg.bool("aho.verbose"),
+                        bridge,
+                        fitness,
+                        signal,
+                        cfg.decimal("adaptive.mutation_base"),
+                        cfg.decimal("adaptive.mutation_range")
+                );
 
-                PlacementSolution best = aho.optimize();
+        optimizer.setEpochIndex(epochIndex + 1);
+        best = optimizer.optimize();
+        bestIteration = optimizer.getBestIteration();
+        bestFitness = optimizer.getBestFitness();
+        bestEval = optimizer.getBestEvaluation();
+    }
+
+    case "STANDARD_HO" -> {
+        StandardHippopotamusOptimization optimizer =
+                new StandardHippopotamusOptimization(
+                        state,
+                        populationSize,
+                        maxIterations,
+                        seedBase + epochIndex,
+                        cfg.bool("aho.verbose"),
+                        bridge,
+                        fitness,
+                        cfg.decimalOrDefault("standard_ho.exploration_probability", 0.50),
+                        cfg.decimalOrDefault("standard_ho.mutation_probability", 0.15),
+                        cfg.decimalOrDefault("standard_ho.attraction_probability", 0.80),
+                        cfg.decimalOrDefault("standard_ho.defense_fraction", 0.10)
+                );
+
+        optimizer.setEpochIndex(epochIndex + 1);
+        best = optimizer.optimize();
+        bestIteration = optimizer.getBestIteration();
+        bestFitness = optimizer.getBestFitness();
+        bestEval = optimizer.getBestEvaluation();
+    }
+
+    case "FIRST_FIT" -> {
+        FirstFitAllocation optimizer =
+                new FirstFitAllocation(state, bridge, fitness);
+
+        optimizer.setEpochIndex(epochIndex + 1);
+        best = optimizer.optimize();
+        bestIteration = optimizer.getBestIteration();
+        bestFitness = optimizer.getBestFitness();
+        bestEval = optimizer.getBestEvaluation();
+    }
+
+    default -> throw new IllegalArgumentException(
+            "Unsupported algorithm: " + algorithm
+    );
+}
 
                 if (!PlacementValidator.isFeasible(
                         vms,
@@ -187,7 +258,7 @@ public final class Main {
                         best
                 )) {
                     throw new IllegalStateException(
-                            "AHO returned an infeasible committed placement at timestamp "
+                            algorithm + " returned an infeasible committed placement at timestamp "
                                      + epoch.timestamp()
                     );
                 }
@@ -196,7 +267,7 @@ public final class Main {
                         epochIndex + 1,
                         state,
                         best,
-                        aho.getBestIteration()
+                        bestIteration
                 );
 
                 java.util.Map<String, Integer> finalPlacementMap = new java.util.LinkedHashMap<>();
@@ -205,13 +276,12 @@ public final class Main {
                 }
                 evaluator.commitFinalPlacement(epochIndex + 1, epoch.timestamp(), finalPlacementMap);
 
-                CloudSimEvaluationResult bestEval = aho.getBestEvaluation();
                 if (bestEval != null) {
                     epochMetricsWriter.write(
                             epochIndex + 1,
                             epoch.timestamp(),
                             bestEval,
-                            aho.getBestFitness(),
+                            bestFitness,
                             true
                     );
                 }
@@ -230,8 +300,8 @@ public final class Main {
                         epochIndex + 1,
                         epoch.timestamp(),
                         vms.size(),
-                        aho.getBestIteration(),
-                        Double.toString(aho.getBestFitness())
+                        bestIteration,
+                        Double.toString(bestFitness)
                 );
             }
 

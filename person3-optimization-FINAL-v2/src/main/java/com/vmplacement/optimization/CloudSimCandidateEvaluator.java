@@ -26,7 +26,11 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
     private final File candidateResultsFile;
     private final HostPowerStateModel powerStateModel;
     private final double standbyPowerWatts;
+    private String algorithmName = "WA_AHO";
 
+public void setAlgorithmName(String algorithmName) {
+    this.algorithmName = algorithmName;
+}
     public CloudSimCandidateEvaluator() {
         this(new DatacenterState(), new File("../results/candidate_evaluation_results.csv"),
              HostPowerStateModel.ACTIVE_SERVERS_ONLY, 0.0);
@@ -100,7 +104,7 @@ public final class CloudSimCandidateEvaluator implements CloudSimEvaluator {
                 input.iteration(),
                 input.candidateId(),
                 input.timestamp(),
-                "AHO",
+                algorithmName,
                 slaThreshold,
                 vmPlacements,
                 pmSpecs,
